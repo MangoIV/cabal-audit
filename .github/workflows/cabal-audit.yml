@@ -1,0 +1,43 @@
+name: Build cabal-audit
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build:
+    name: Build cabal-audit and Docker image
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v26
+
+      - name: Set up cachix
+        uses: cachix/cachix-action@v14
+        with:
+          name: cabal-audit
+          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
+
+      - name: Build cabal-audit
+        run: |
+          nix build
+
+      - name: Build cabal-audit Docker image
+        run: |
+          nix build .#cabal-audit-docker -o result-docker
+
+      - name: Upload static cabal-audit exe
+        uses: actions/upload-artifact@v4
+        with:
+          name: cabal-audit
+          path: result/bin/cabal-audit
+

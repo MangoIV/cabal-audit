@@ -73,7 +73,6 @@
           # by providing a flake url)
           haskellProjects.default = {
             packages = {
-              Cabal-syntax.source = "3.10.3.0";
               toml-parser.source = inputs.toml-parser;
               hsec-core.source = "${inputs.security-advisories}/code/hsec-core";
               hsec-tools.source = "${inputs.security-advisories}/code/hsec-tools";
@@ -105,13 +104,13 @@
             };
           };
 
-          packages = { 
+          packages = {
             default = config.packages.cabal-audit;
-            cabal-audit-docker =  pkgs.dockerTools.buildImage {
-              name = "cabal-audit-docker"; 
+            cabal-audit-docker = pkgs.dockerTools.buildImage {
+              name = "cabal-audit-docker";
               tag = "latest";
-              contents = [config.packages.cabal-audit pkgs.haskellPackages.ghc pkgs.git pkgs.wget];
-              config = { 
+              copyToRoot = [ config.packages.cabal-audit pkgs.haskellPackages.ghc pkgs.git pkgs.wget ];
+              config = {
                 Cmd = [ "/bin/cabal-audit" ];
                 WorkingDir = "/workspace";
               };

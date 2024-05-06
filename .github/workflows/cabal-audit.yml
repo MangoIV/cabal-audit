@@ -27,17 +27,21 @@ jobs:
           name: cabal-audit
           authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
 
+      - name: Check flake 
+        run: | 
+          nix -Lv flake check
+
       - name: Build cabal-audit
         run: |
-          nix build
+          nix -Lv build
+          chmod +x result/bin/cabal-audit
 
-      - name: Build cabal-audit Docker image
+      - name: Build cabal-audit docker image
         run: |
-          nix build .#cabal-audit-docker -o result-docker
+          nix -Lv build .#cabal-audit-docker -o result-docker
 
       - name: Upload static cabal-audit exe
         uses: actions/upload-artifact@v4
         with:
           name: cabal-audit
           path: result/bin/cabal-audit
-

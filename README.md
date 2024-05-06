@@ -73,6 +73,7 @@ dependency "process" at version 1.6.17.0 is vulnerable for:
 - Suggest the latest package version on Hackage that is greater than the fix version.
 - Additional Cabal solver options.
 - More structured monadic code. (also enables disabling colouring)
+- upload package on hackage
 
 ## Contributing
 

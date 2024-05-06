@@ -60,21 +60,22 @@ dependency "process" at version 1.6.17.0 is vulnerable for:
 > [!Note]
 > If you encounter an error related to lock file incompatibility, consider upgrading your Nix version.
 
-## Features
+## Implemented
 
-- **Query vulnerabilities**: Scans project dependencies for known vulnerabilities.
-- **Human-readable output**: Displays human-readable results.
-- **Machine-readable output**: Displays machine-readable output as json containing osvs.
-- **Cabal solver**: Matches vulnerabilities against project dependencies.
-- **Fix version suggestion**: Provides fix version or a link to relevant advisories.
+- query for vulnerable dependencies in cabal plan
+- human readable output
+- machine readable output 
+- fix version suggestion
 
-## Open Features
+## Not Implemented
 
-- Provide a range of fix versions instead of just the latest.
-- Suggest the latest package version on Hackage that is greater than the fix version.
-- Additional Cabal solver options.
-- More structured monadic code. (also enables disabling colouring)
+- range of fix versions
+- suggest latest fixed version
+- pass cabal options into cabal solver
+- more structured monadic code (allows to disable colouring)
+- proper url parsing
 - upload package on hackage
+- look at other tools for prior art
 
 ## Contributing
 

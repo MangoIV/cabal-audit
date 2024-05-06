@@ -1,0 +1,66 @@
+name: Build cabal-audit with many ghc versions
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  generate-matrix:
+    name: "Generate matrix from cabal"
+    outputs: 
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Extract the tested GHC versions
+        id: set-matrix
+        uses: kleidukos/get-tested@v0.1.7.0
+        with:
+          cabal-file: cabal-audit.cabal
+          ubuntu-version: "latest"
+          macos-version: "latest"
+          version: 0.1.7.0
+  tests:
+    name: ${{ matrix.ghc }} on ${{ matrix.os }}
+    needs: generate-matrix
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix: ${{ fromJSON(needs.generate-matrix.outputs.matrix) }}
+    steps: 
+      - name: Checkout repo
+        uses: actions/checkout@v4
+      - name: Set up Haskell
+        id: setup-haskell
+        uses: haskell-actions/setup@v2
+        with:
+          ghc-version: ${{ matrix.ghc }}
+          cabal-version: 'latest'
+      - name: install packages from security-advisories
+        run: |
+          git clone https://github.com/haskell/security-advisories ./hsec
+          echo 'packages:
+            ./hsec/code/osv
+            ./hsec/code/cvss
+            ./hsec/code/hsec-core
+            ./hsec/code/hsec-tools
+          test-show-details: direct
+          enable-test: true
+          ' > cabal.project.local 
+          cat cabal.project.local
+          ls -l ./hsec/code
+      - name: Freeze
+        run: cabal freeze
+      - name: Cache
+        uses: actions/cache@v4.0.2
+        with:
+          path: ${{ steps.setup-haskell.outputs.cabal-store }}
+          key: ${{ runner.os }}-${{ matrix.ghc }}-${{ hashFiles('cabal.project.freeze') }}
+          restore-keys: ${{ runner.os }}-${{ matrix.ghc }}-
+      - name: Build
+        run: cabal build
+      - name: Test
+        run: cabal test all

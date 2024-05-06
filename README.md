@@ -1,5 +1,5 @@
 <div align="center">
-  <h1> `cabal-audit` </h1>
+  <h1> <code> cabal-audit </code> </h1>
   <a href="https://github.com/mangoiv/cabal-audit/actions">
     <img src="https://github.com/mangoiv/cabal-audit/actions/workflows/cabal-audit.yml/badge.svg" alt="CI">
   </a>

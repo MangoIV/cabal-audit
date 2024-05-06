@@ -18,11 +18,12 @@ To install `cabal-audit`, you can use Nix by running the following command:
 nix run github:mangoiv/cabal-audit -- --help
 ```
 
-If you don't use `nix`, you can also build from source with `cabal` or install 
-[download a static executable from one of the latest workflow runs](https://github.com/MangoIV/cabal-audit/actions). 
+If you don't use `nix`, you can also build from source with `cabal` or
+[download a static executable from one of the latest workflow runs](https://github.com/MangoIV/cabal-audit/releases/tag/nightly)>
 
-In order to do so, navigate to the workflows (link above), press on one of the green ones, then press the download button
-on the Artifacts tab
+> [!Note]
+> We also have a `cachix`. If you trust me (which I do not recommend, never trust anybody!), run `cachix use cabal-audit` to 
+> download directly from the cachix and skip building.
 
 ## Usage
 

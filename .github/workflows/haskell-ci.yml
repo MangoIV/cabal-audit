@@ -23,7 +23,6 @@ jobs:
           cabal-file: cabal-audit.cabal
           ubuntu-version: "latest"
           macos-version: "latest"
-          windows-version: "latest"
           version: 0.1.7.0
   tests:
     name: ${{ matrix.ghc }} on ${{ matrix.os }}
@@ -40,8 +39,19 @@ jobs:
         with:
           ghc-version: ${{ matrix.ghc }}
           cabal-version: 'latest'
-      - name: Configure
-        run: cabal configure --enable-tests
+      - name: install packages from security-advisories
+        run: |
+          git clone https://github.com/haskell/security-advisories ./hsec
+          echo 'packages:
+            ./hsec/code/osv
+            ./hsec/code/cvss
+            ./hsec/code/hsec-core
+            ./hsec/code/hsec-tools
+          test-show-details: direct
+          enable-test: true
+          ' > cabal.project.local 
+          cat cabal.project.local
+          ls -l ./hsec/code
       - name: Freeze
         run: cabal freeze
       - name: Cache

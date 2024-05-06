@@ -61,7 +61,7 @@ jobs:
           path: artifacts/cabal-audit-docker.tar
 
       - name: Release nightly cabal-audit exe
-        uses: softprops/action-gh-release@v4
+        uses: softprops/action-gh-release@v2
         with:
           prerelease: true
           tag_name: nightly

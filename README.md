@@ -18,6 +18,12 @@ To install `cabal-audit`, you can use Nix by running the following command:
 nix run github:mangoiv/cabal-audit -- --help
 ```
 
+If you don't use `nix`, you can also build from source with `cabal` or install 
+[download a static executable from one of the latest workflow runs](https://github.com/MangoIV/cabal-audit/actions). 
+
+In order to do so, navigate to the workflows (link above), press on one of the green ones, then press the download button
+on the Artifacts tab
+
 ## Usage
 
 Run `cabal-audit` to scan your project for known vulnerabilities:

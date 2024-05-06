@@ -19,7 +19,7 @@ nix run github:mangoiv/cabal-audit -- --help
 ```
 
 If you don't use `nix`, you can also build from source with `cabal` or
-[download a static executable from one of the latest workflow runs](https://github.com/MangoIV/cabal-audit/releases/tag/nightly)>
+[download a static executable from one of the latest workflow runs](https://github.com/MangoIV/cabal-audit/releases/tag/nightly).
 
 > [!Note]
 > We also have a `cachix`. If you trust me (which I do not recommend, never trust anybody!), run `cachix use cabal-audit` to 

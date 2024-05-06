@@ -73,6 +73,8 @@
           # by providing a flake url)
           haskellProjects.default = {
             packages = {
+              Cabal.source = "3.10.3.0";
+              Cabal-Syntax.source = "3.10.3.0";
               toml-parser.source = inputs.toml-parser;
               hsec-core.source = "${inputs.security-advisories}/code/hsec-core";
               hsec-tools.source = "${inputs.security-advisories}/code/hsec-tools";

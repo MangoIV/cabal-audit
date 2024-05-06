@@ -34,14 +34,38 @@ jobs:
       - name: Build cabal-audit
         run: |
           nix -Lv build
-          chmod +x result/bin/cabal-audit
 
       - name: Build cabal-audit docker image
         run: |
           nix -Lv build .#cabal-audit-docker -o result-docker
 
+      - name: Create release artifacts
+        run: | 
+          mkdir -p artifacts
+
+          cp result/bin/cabal-audit artifacts
+          chmod +x artifacts/cabal-audit
+
+          cp result-docker artifacts/cabal-audit-docker.tar
+
       - name: Upload static cabal-audit exe
         uses: actions/upload-artifact@v4
         with:
           name: cabal-audit
-          path: result/bin/cabal-audit
+          path: artifacts/cabal-audit
+
+      - name: Upload cabal-audit docker
+        uses: actions/upload-artifact@v4
+        with:
+          name: cabal-audit-docker.tar
+          path: artifacts/cabal-audit-docker.tar
+
+      - name: Release nightly cabal-audit exe
+        uses: softprops/action-gh-release@v4
+        with:
+          prerelease: true
+          tag_name: nightly
+          files: |
+            artifacts/cabal-audit
+            artifacts/cabal-audit-docker.tar
+          fail_on_unmatched_files: true

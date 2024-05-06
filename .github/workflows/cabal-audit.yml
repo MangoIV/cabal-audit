@@ -61,6 +61,7 @@ jobs:
           path: artifacts/cabal-audit-docker.tar
 
       - name: Release nightly cabal-audit exe
+        if: github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
           prerelease: true

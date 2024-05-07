@@ -30,7 +30,7 @@ If you don't use `nix`, you can also build from source with `cabal` or
 Run `cabal-audit` to scan your project for known vulnerabilities:
 
 ```console
-λ nix run github:mangoiv/security-advisories/mangoiv/cabal-audit-osv#cabal-audit --
+λ nix run github:mangoiv/cabal-audit
 trying to clone https://github.com/haskell/security-advisories
 Cloning into '/tmp/cabal-audit-726d3e9345b766bc'...
 remote: Enumerating objects: 172, done.

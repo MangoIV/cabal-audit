@@ -39,19 +39,6 @@ jobs:
         with:
           ghc-version: ${{ matrix.ghc }}
           cabal-version: 'latest'
-      - name: install packages from security-advisories
-        run: |
-          git clone https://github.com/haskell/security-advisories ./hsec
-          echo 'packages:
-            ./hsec/code/osv
-            ./hsec/code/cvss
-            ./hsec/code/hsec-core
-            ./hsec/code/hsec-tools
-          test-show-details: direct
-          enable-test: true
-          ' > cabal.project.local 
-          cat cabal.project.local
-          ls -l ./hsec/code
       - name: Freeze
         run: cabal freeze
       - name: Cache

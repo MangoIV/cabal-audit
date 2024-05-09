@@ -30,7 +30,28 @@ If you don't use `nix`, you can also build from source with `cabal` or
 Run `cabal-audit` to scan your project for known vulnerabilities:
 
 ```console
-λ nix run github:mangoiv/cabal-audit
+λ cabal run cabal-audit -- --help
+Welcome to cabal audit
+
+Usage: cabal-audit [(-p|--file-path FILEPATH) | (-r|--repository REPOSITORY)] 
+                   [--verbosity ARG] [-m|--json] [-o|--to-file FILEPATH]
+
+  audit your cabal projects for vulnerabilities
+
+Available options:
+  -h,--help                Show this help text
+  -p,--file-path FILEPATH  the path to the repository containing an advisories
+                           directory
+  -r,--repository REPOSITORY
+                           the url to the repository containing an advisories
+                           directory
+  -m,--json                whether to format as json mapping package names to
+                           osvs that apply
+  -o,--to-file FILEPATH    specify a file to write to, instead of stdout
+```
+
+```console
+λ cabal run cabal-audit
 trying to clone https://github.com/haskell/security-advisories
 Cloning into '/tmp/cabal-audit-726d3e9345b766bc'...
 remote: Enumerating objects: 172, done.

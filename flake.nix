@@ -72,8 +72,13 @@
           # and run nix --allow-import-from-derivation flake show in the repository (or as usual
           # by providing a flake url)
           haskellProjects.default = {
+            basePackages = pkgs.haskell.packages.ghc98;
             packages = {
               Cabal-syntax.source = "3.10.3.0";
+              Cabal.source = "3.10.3.0";
+              haskell-language-server.source = "2.7.0.0";
+              ormolu.source = "0.7.4.0";
+              fourmolu.source = "0.15.0.0";
               toml-parser.source = inputs.toml-parser;
               hsec-core.source = "${inputs.security-advisories}/code/hsec-core";
               hsec-tools.source = "${inputs.security-advisories}/code/hsec-tools";
@@ -82,6 +87,7 @@
             };
             settings = {
               cabal-audit.justStaticExecutables = true;
+              fourmolu.check = false;
             };
             autoWire = [ "packages" "checks" "apps" ];
           };

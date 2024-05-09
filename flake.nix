@@ -76,6 +76,7 @@
             packages = {
               Cabal-syntax.source = "3.10.3.0";
               Cabal.source = "3.10.3.0";
+              extensions.source = "0.1.0.1";
               haskell-language-server.source = "2.7.0.0";
               ormolu.source = "0.7.4.0";
               fourmolu.source = "0.15.0.0";
@@ -87,6 +88,7 @@
             };
             settings = {
               cabal-audit.justStaticExecutables = true;
+              extensions.jailbreak = true;
               fourmolu.check = false;
             };
             autoWire = [ "packages" "checks" "apps" ];

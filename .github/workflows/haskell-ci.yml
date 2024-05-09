@@ -23,6 +23,7 @@ jobs:
           cabal-file: cabal-audit.cabal
           ubuntu-version: "latest"
           macos-version: "latest"
+          windows-version: "latest"
           version: 0.1.7.0
   tests:
     name: ${{ matrix.ghc }} on ${{ matrix.os }}
@@ -51,5 +52,7 @@ jobs:
         run: cabal build
       - name: Test
         run: cabal test all
-      - name: Run cabal-audit on itself
+      - name: Run cabal-audit (human-readable) on itself
         run: cabal run cabal-audit
+      - name: Run cabal-audit (machine-readable) on itself
+        run: cabal run cabal-audit -- --json

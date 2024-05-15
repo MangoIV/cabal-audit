@@ -1,26 +1,27 @@
-{ mkDerivation
-, aeson
-, base
-, cvss
-, fetchgit
-, lib
-, tasty
-, tasty-hunit
-, text
-, time
+{
+  mkDerivation,
+  aeson,
+  base,
+  cvss,
+  fetchgit,
+  lib,
+  tasty,
+  tasty-hunit,
+  text,
+  time,
 }:
 mkDerivation {
   pname = "osv";
   version = "0.1.0.0";
   src = fetchgit {
     url = "https://github.com/haskell/security-advisories.git";
-    sha256 = "0icgccdnfl1zjc9dzish4dvvi83fyazqdpiw3m838hwbq12wkhli";
-    rev = "20ba58c5738f5fb9ae5908a08568aafb844f6938";
+    sha256 = "064w3hca4kpaysjp7mnfk3ggvf4l11i7a8qqjiw05j96zhs5cgnc";
+    rev = "ed728d3aeb69add3f1f62d205cbb5b59a99aa4f0";
     fetchSubmodules = true;
   };
   postUnpack = "sourceRoot+=/code/osv/; echo source root reset to $sourceRoot";
-  libraryHaskellDepends = [ aeson base cvss text time ];
-  testHaskellDepends = [ base tasty tasty-hunit ];
+  libraryHaskellDepends = [aeson base cvss text time];
+  testHaskellDepends = [base tasty tasty-hunit];
   description = "Open Source Vulnerability format";
   license = lib.licenses.bsd3;
 }

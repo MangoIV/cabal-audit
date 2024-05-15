@@ -92,21 +92,6 @@
         "type": "github"
       }
     },
-    "haskell-flake": {
-      "locked": {
-        "lastModified": 1714886475,
-        "narHash": "sha256-mHXGbESaMbS8gJ8+DtJwgaJLtpGKYAYgXqUzAgf/O70=",
-        "owner": "srid",
-        "repo": "haskell-flake",
-        "rev": "d06c68deaed203b6fd172e18fc6cacfee45f748c",
-        "type": "github"
-      },
-      "original": {
-        "owner": "srid",
-        "repo": "haskell-flake",
-        "type": "github"
-      }
-    },
     "nixpkgs": {
       "locked": {
         "lastModified": 1704161960,
@@ -153,11 +138,11 @@
     },
     "nixpkgs_2": {
       "locked": {
-        "lastModified": 1714912032,
-        "narHash": "sha256-clkcOIkg8G4xuJh+1onLG4HPMpbtzdLv4rHxFzgsH9c=",
+        "lastModified": 1715653339,
+        "narHash": "sha256-7lR9tpVXviSccl07GXI0+ve/natd24HAkuy1sQp0OlI=",
         "owner": "nixos",
         "repo": "nixpkgs",
-        "rev": "ee4a6e0f566fe5ec79968c57a9c2c3c25f2cf41d",
+        "rev": "abd6d48f8c77bea7dc51beb2adfa6ed3950d2585",
         "type": "github"
       },
       "original": {
@@ -226,12 +211,10 @@
     "root": {
       "inputs": {
         "devshell": "devshell",
-        "haskell-flake": "haskell-flake",
         "nixpkgs": "nixpkgs_2",
         "parts": "parts",
         "pre-commit-hooks": "pre-commit-hooks",
-        "security-advisories": "security-advisories",
-        "toml-parser": "toml-parser"
+        "security-advisories": "security-advisories"
       }
     },
     "security-advisories": {
@@ -278,19 +261,6 @@
         "owner": "nix-systems",
         "repo": "default",
         "type": "github"
-      }
-    },
-    "toml-parser": {
-      "flake": false,
-      "locked": {
-        "lastModified": 1000000000,
-        "narHash": "sha256-ORXJIeAEb2fTAqLVhOurubDrz7Ddh7weZNEDkTkNP4k=",
-        "type": "tarball",
-        "url": "https://hackage.haskell.org/package/toml-parser-2.0.0.0/toml-parser-2.0.0.0.tar.gz"
-      },
-      "original": {
-        "type": "tarball",
-        "url": "https://hackage.haskell.org/package/toml-parser-2.0.0.0/toml-parser-2.0.0.0.tar.gz"
       }
     }
   },

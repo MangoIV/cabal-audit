@@ -62,18 +62,20 @@
                 name = "regen-nix";
                 help = "regenerate nix derivations for haskell packages";
                 command = /* bash */ ''
-                  cabal2nix https://github.com/haskell/security-advisories.git --subpath code/hsec-core/ > $PRJ_ROOT/nix/hsec-core.nix
-                  cabal2nix https://github.com/haskell/security-advisories.git --subpath code/cvss/ > $PRJ_ROOT/nix/cvss.nix
-                  cabal2nix https://github.com/haskell/security-advisories.git --subpath code/osv/ > $PRJ_ROOT/nix/osv.nix
-                  cabal2nix https://github.com/haskell/security-advisories.git --subpath code/hsec-tools/ > $PRJ_ROOT/nix/hsec-tools.nix
-                  cabal2nix $PRJ_ROOT > $PRJ_ROOT/nix/cabal-audit.nix
+                  pushd $PRJ_ROOT/nix
+                  cabal2nix https://github.com/haskell/security-advisories.git --subpath code/hsec-core/ > ./hsec-core.nix
+                  cabal2nix https://github.com/haskell/security-advisories.git --subpath code/cvss/ > ./cvss.nix
+                  cabal2nix https://github.com/haskell/security-advisories.git --subpath code/osv/ > ./osv.nix
+                  cabal2nix https://github.com/haskell/security-advisories.git --subpath code/hsec-tools/ > ./hsec-tools.nix
+                  cabal2nix ../. > ./cabal-audit.nix
+                  popd
                   pre-commit run --all
                 '';
               }
             ];
             devshell = {
               name = "cabal-audit";
-              packagesFrom = [ (import ./nix/haskell-shell.nix { inherit pkgs hspkgs; }) ];
+              # packagesFrom = [ (import ./nix/haskell-shell.nix { inherit pkgs hspkgs; }) ];
               packages = [ pkgs.cabal2nix ];
               startup.pre-commit.text = config.pre-commit.installationScript;
             };

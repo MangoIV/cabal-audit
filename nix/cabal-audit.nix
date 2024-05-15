@@ -24,7 +24,7 @@
 mkDerivation {
   pname = "cabal-audit";
   version = "1.0.0.0";
-  src = /home/mangoiv/Devel/cabal-audit;
+  src = ../.;
   isLibrary = true;
   isExecutable = true;
   libraryHaskellDepends = [

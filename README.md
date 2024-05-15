@@ -88,16 +88,6 @@ dependency "process" at version 1.6.17.0 is vulnerable for:
 - machine readable output 
 - fix version suggestion
 
-## Not Implemented
-
-- range of fix versions
-- suggest latest fixed version
-- pass cabal options into cabal solver
-- more structured monadic code (allows to disable colouring)
-- proper url parsing
-- upload package on hackage
-- look at other tools for prior art
-
 ## Contributing
 
 Contributions are welcome. This repo is flake-enabled. To setup a `devShell`, run `nix develop` or `direnv allow`.

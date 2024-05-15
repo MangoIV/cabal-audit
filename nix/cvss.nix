@@ -1,16 +1,24 @@
-{ mkDerivation, base, fetchgit, lib, tasty, tasty-hunit, text }:
+{
+  mkDerivation,
+  base,
+  fetchgit,
+  lib,
+  tasty,
+  tasty-hunit,
+  text,
+}:
 mkDerivation {
   pname = "cvss";
   version = "0.1";
   src = fetchgit {
     url = "https://github.com/haskell/security-advisories.git";
-    sha256 = "0icgccdnfl1zjc9dzish4dvvi83fyazqdpiw3m838hwbq12wkhli";
-    rev = "20ba58c5738f5fb9ae5908a08568aafb844f6938";
+    sha256 = "064w3hca4kpaysjp7mnfk3ggvf4l11i7a8qqjiw05j96zhs5cgnc";
+    rev = "ed728d3aeb69add3f1f62d205cbb5b59a99aa4f0";
     fetchSubmodules = true;
   };
   postUnpack = "sourceRoot+=/code/cvss/; echo source root reset to $sourceRoot";
-  libraryHaskellDepends = [ base text ];
-  testHaskellDepends = [ base tasty tasty-hunit text ];
+  libraryHaskellDepends = [base text];
+  testHaskellDepends = [base tasty tasty-hunit text];
   description = "Common Vulnerability Scoring System";
   license = lib.licenses.bsd3;
 }

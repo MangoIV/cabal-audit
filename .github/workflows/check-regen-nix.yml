@@ -1,0 +1,40 @@
+name: Build cabal-audit
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build:
+    name: Check nix regeneration
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v26
+
+      - name: Set up cachix
+        uses: cachix/cachix-action@v14
+        with:
+          name: cabal-audit
+          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
+
+      - name: regenerate nix
+        run: | 
+          export PRJ_ROOT=./.
+          nix -Lv run .#regen-nix
+
+      - name: check for git changes
+        run: | 
+          if [[ $(git status --porcelain) ]]; then
+            echo "Uncommitted changes found after running the regen-nix"
+            echo "please run regen-nix or nix run .#regen-nix locally"
+            git diff
+            exit 1
+          else
+            echo "No changes found after running the tool."
+          fi

@@ -1,5 +1,10 @@
-{ pkgs, hspkgs, ... }: hspkgs.shellFor {
-  packages = hps: [ hps.cabal-audit ];
+{
+  pkgs,
+  hspkgs,
+  ...
+}:
+hspkgs.shellFor {
+  packages = hps: [hps.cabal-audit];
 
   nativeBuildInputs = [
     pkgs.haskell-language-server

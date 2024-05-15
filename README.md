@@ -101,3 +101,5 @@ dependency "process" at version 1.6.17.0 is vulnerable for:
 ## Contributing
 
 Contributions are welcome. This repo is flake-enabled. To setup a `devShell`, run `nix develop` or `direnv allow`.
+
+If you change dependencies, please run `regen-nix` to regenerate the nix derivations.

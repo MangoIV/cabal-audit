@@ -69,7 +69,7 @@
           ];
           devshell = {
             name = "cabal-audit";
-            packagesFrom = [(import ./nix/haskell-shell.nix {inherit pkgs hspkgs;})];
+            packagesFrom = [(import ./nix/haskell-shell.nix {inherit hspkgs;})];
             packages = [pkgs.cabal2nix pkgs.alejandra];
             startup.pre-commit.text = config.pre-commit.installationScript;
           };

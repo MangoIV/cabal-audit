@@ -18,8 +18,9 @@ To install `cabal-audit`, you can use Nix by running the following command:
 nix run github:mangoiv/cabal-audit -- --help
 ```
 
-If you don't use `nix`, you can also build from source with `cabal` or
-[download a static executable from one of the latest workflow runs](https://github.com/MangoIV/cabal-audit/releases/tag/nightly).
+If you don't use `nix`, you can also build from source with `cabal`. Just clone the repository and run `cabal install`.
+
+You can also [download a static executable from one of the latest workflow runs](https://github.com/MangoIV/cabal-audit/releases/tag/nightly).
 
 > [!Note]
 > We also have a `cachix`. If you trust me (which I do not recommend, never trust anybody!), run `cachix use cabal-audit` to 
@@ -90,6 +91,9 @@ dependency "process" at version 1.6.17.0 is vulnerable for:
 
 ## Contributing
 
-Contributions are welcome. This repo is flake-enabled. To setup a `devShell`, run `nix develop` or `direnv allow`.
+Contributions are welcome. 
 
+Building the project in a non-nix environment should be as easy as `cabal build`, the build is tested against multiple ghc versions and operating systems in the CI so it should always work with one of these. If you don't use nix, installing the necessary tooling is as always possible with [ghcup](https://www.haskell.org/ghcup/).
+
+This repo is flake-enabled. To setup a `devShell`, run `nix develop` or `direnv allow`.
 If you change dependencies, please run `regen-nix` to regenerate the nix derivations.

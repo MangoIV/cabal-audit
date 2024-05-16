@@ -220,11 +220,11 @@
     "security-advisories": {
       "flake": false,
       "locked": {
-        "lastModified": 1714848764,
-        "narHash": "sha256-kcLJRcCLQzRQHTzehr/ybqC4dyNQx98Skz9QZxtjj0U=",
+        "lastModified": 1715805493,
+        "narHash": "sha256-zD5WNPwmyQJ4lBgjdWIIlLj93pjO1nOl9upOohgcnBg=",
         "owner": "haskell",
         "repo": "security-advisories",
-        "rev": "20ba58c5738f5fb9ae5908a08568aafb844f6938",
+        "rev": "ed728d3aeb69add3f1f62d205cbb5b59a99aa4f0",
         "type": "github"
       },
       "original": {

@@ -39,14 +39,19 @@ import Distribution.Verbosity qualified as Verbosity
 import Distribution.Version (Version, versionNumbers)
 import GHC.Generics (Generic)
 import Options.Applicative
-import Security.Advisories (Advisory (..), Keyword (..), ParseAdvisoryError, printHsecId)
-import Security.Advisories.Cabal (ElaboratedPackageInfoAdvised, ElaboratedPackageInfoWith (MkElaboratedPackageInfoWith, elaboratedPackageVersion, packageAdvisories), matchAdvisoriesForPlan)
+import Security.Advisories (Advisory (..), Keyword (..), ParseAdvisoryError (..), printHsecId)
+import Security.Advisories.Cabal
+  ( ElaboratedPackageInfoAdvised
+  , ElaboratedPackageInfoWith (MkElaboratedPackageInfoWith, elaboratedPackageVersion, packageAdvisories)
+  , matchAdvisoriesForPlan
+  )
 import Security.Advisories.Convert.OSV qualified as OSV
 import Security.Advisories.Filesystem (listAdvisories)
 import System.Exit (exitFailure)
 import System.IO (Handle, IOMode (WriteMode), hPutStrLn, stderr, stdout, withFile)
 import System.IO.Temp (withSystemTempDirectory)
 import System.Process (callProcess)
+import Toml (prettyMatchMessage)
 import Validation (validation)
 
 data AuditException
@@ -56,6 +61,32 @@ data AuditException
     CabalException {reason :: String, cabalException :: SomeException}
   deriving stock (Show, Generic)
 
+prettyParseAdvisoryError :: ParseAdvisoryError -> String
+prettyParseAdvisoryError = \case
+  MarkdownError parseError txt ->
+    unlines
+      [ "error parsing commonmark markdown: "
+      , "\t" <> show parseError
+      , ""
+      , "\t" <> T.unpack txt
+      ]
+  MarkdownFormatError txt ->
+    unlines
+      [ "problem with the structure of the markdown:"
+      , "\t" <> T.unpack txt
+      ]
+  TomlError _ txt ->
+    unlines
+      [ "couldn't parse toml:"
+      , "\t" <> T.unpack txt
+      ]
+  AdvisoryError msgs txt ->
+    unlines $
+      [ "problems while parsing advisories:"
+      , "\t" <> T.unpack txt
+      ]
+        <> (prettyMatchMessage <$> msgs)
+
 instance Exception AuditException where
   displayException = \case
     ListAdvisoryValidationError dir errs ->
@@ -63,7 +94,7 @@ instance Exception AuditException where
         [ "Listing the advisories in directory "
         , dir
         , " failed with: \n"
-        , show errs
+        , mconcat $ prettyParseAdvisoryError <$> errs
         ]
     CabalException ctx (SomeException ex) ->
       "cabal failed while "

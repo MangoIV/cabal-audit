@@ -76,6 +76,7 @@ library
     , process
     , temporary
     , text
+    , toml-parser
     , unliftio
     , validation-selective
 

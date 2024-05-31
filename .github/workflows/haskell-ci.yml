@@ -40,6 +40,8 @@ jobs:
         with:
           ghc-version: ${{ matrix.ghc }}
           cabal-version: 'latest'
+      - name: Update 
+        run: cabal update
       - name: Freeze
         run: cabal freeze
       - name: Cache

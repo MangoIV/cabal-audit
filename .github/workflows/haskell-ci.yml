@@ -34,6 +34,9 @@ jobs:
     steps: 
       - name: Checkout repo
         uses: actions/checkout@v4
+      - name: Test git 
+        run: |
+          git log --date=local --pretty="format:%cI" ./app/Main.hs
       - name: Set up Haskell
         id: setup-haskell
         uses: haskell-actions/setup@v2

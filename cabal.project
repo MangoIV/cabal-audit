@@ -7,6 +7,7 @@ source-repository-package
   subdir: code/hsec-tools
   subdir: code/cvss
   subdir: code/osv
-  location: https://github.com/haskell/security-advisories.git
+  location: https://github.com/mangoiv/security-advisories.git
+  tag: 4b3059ea6b47acdae6485ceaea1dd8eebb54cf37
 
 test-show-details: direct

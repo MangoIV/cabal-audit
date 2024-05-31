@@ -1,3 +1,5 @@
+{-# OPTIONS_GHC -Wno-orphans #-}
+
 -- | provides the @cabal-audit@ plugin which works as follows:
 --
 -- 1. parse command line arguments to pass on to cabal to build
@@ -20,6 +22,7 @@ import Data.Foldable (for_)
 import Data.Functor.Identity (Identity (runIdentity))
 import Data.List qualified as List
 import Data.Map qualified as M
+import Data.Monoid (Endo (..))
 import Data.String (IsString (fromString))
 import Data.Text (Text)
 import Data.Text qualified as T
@@ -40,18 +43,13 @@ import Distribution.Version (Version, versionNumbers)
 import GHC.Generics (Generic)
 import Options.Applicative
 import Security.Advisories (Advisory (..), Keyword (..), ParseAdvisoryError (..), printHsecId)
-import Security.Advisories.Cabal
-  ( ElaboratedPackageInfoAdvised
-  , ElaboratedPackageInfoWith (MkElaboratedPackageInfoWith, elaboratedPackageVersion, packageAdvisories)
-  , matchAdvisoriesForPlan
-  )
+import Security.Advisories.Cabal (ElaboratedPackageInfoAdvised, ElaboratedPackageInfoWith (..), matchAdvisoriesForPlan)
 import Security.Advisories.Convert.OSV qualified as OSV
 import Security.Advisories.Filesystem (listAdvisories)
 import System.Exit (exitFailure)
 import System.IO (Handle, IOMode (WriteMode), hPutStrLn, stderr, stdout, withFile)
 import System.IO.Temp (withSystemTempDirectory)
 import System.Process (callProcess)
-import Toml (prettyMatchMessage)
 import Validation (validation)
 
 data AuditException
@@ -61,41 +59,54 @@ data AuditException
     CabalException {reason :: String, cabalException :: SomeException}
   deriving stock (Show, Generic)
 
-prettyParseAdvisoryError :: ParseAdvisoryError -> String
+type DString = Endo String
+
+instance (IsString a, Semigroup a) => IsString (Endo a) where
+  fromString s = Endo (<> fromString s)
+
+runDString :: DString -> String
+runDString = flip appEndo []
+
+eshow :: Show a => a -> DString
+eshow = Endo . shows
+
+etxt :: Text -> Endo String
+etxt = fromString . T.unpack
+
+prettyParseAdvisoryError :: ParseAdvisoryError -> DString
 prettyParseAdvisoryError = \case
   MarkdownError parseError txt ->
-    unlines
-      [ "error parsing commonmark markdown: "
-      , "\t" <> show parseError
-      , ""
-      , "\t" <> T.unpack txt
+    mconcat
+      [ "error parsing commonmark markdown: \n\n"
+      , "\t" <> eshow parseError <> "\n"
+      , "\t" <> etxt txt <> "\n"
       ]
   MarkdownFormatError txt ->
-    unlines
+    mconcat
       [ "problem with the structure of the markdown:"
-      , "\t" <> T.unpack txt
+      , "\t" <> etxt txt
       ]
   TomlError _ txt ->
-    unlines
+    mconcat
       [ "couldn't parse toml:"
-      , "\t" <> T.unpack txt
+      , "\t" <> etxt txt
       ]
-  AdvisoryError msgs txt ->
-    unlines $
+  AdvisoryError _ txt ->
+    mconcat
       [ "problems while parsing advisories:"
-      , "\t" <> T.unpack txt
+      , "\t" <> etxt txt
       ]
-        <> (prettyMatchMessage <$> msgs)
 
 instance Exception AuditException where
   displayException = \case
     ListAdvisoryValidationError dir errs ->
-      mconcat
-        [ "Listing the advisories in directory "
-        , dir
-        , " failed with: \n"
-        , mconcat $ prettyParseAdvisoryError <$> errs
-        ]
+      runDString $
+        mconcat
+          [ "Listing the advisories in directory "
+          , fromString dir
+          , " failed with: \n"
+          , mconcat $ prettyParseAdvisoryError <$> errs
+          ]
     CabalException ctx (SomeException ex) ->
       "cabal failed while "
         <> ctx

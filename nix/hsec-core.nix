@@ -3,7 +3,6 @@
   base,
   Cabal-syntax,
   cvss,
-  fetchgit,
   lib,
   osv,
   pandoc-types,
@@ -16,13 +15,7 @@
 mkDerivation {
   pname = "hsec-core";
   version = "0.1.0.0";
-  src = fetchgit {
-    url = "https://github.com/haskell/security-advisories.git";
-    sha256 = "16n0cck9i7f2ws6rmmrlcqw2yp18v0xsg6w56giv29vx90yadqp2";
-    rev = "1f8e5699f7bc96dcc069d3675ef6b95710ccfbde";
-    fetchSubmodules = true;
-  };
-  postUnpack = "sourceRoot+=/code/hsec-core/; echo source root reset to $sourceRoot";
+  sha256 = "036d33f56b0de81e85031eb2bb5357b4f36eaf3c50b22b5214258f1d76dbc679";
   libraryHaskellDepends = [
     base
     Cabal-syntax

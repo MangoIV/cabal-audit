@@ -1,12 +1,4 @@
 packages:
   ./.
 
-source-repository-package
-  type: git
-  subdir: code/hsec-core
-  subdir: code/hsec-tools
-  subdir: code/cvss
-  subdir: code/osv
-  location: https://github.com/haskell/security-advisories.git
-
 test-show-details: direct

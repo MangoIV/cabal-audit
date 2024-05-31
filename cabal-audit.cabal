@@ -68,8 +68,8 @@ library
     , containers
     , filepath
     , fused-effects
-    , hsec-core
-    , hsec-tools
+    , hsec-core             ^>=0.1
+    , hsec-tools            ^>=0.1
     , http-client
     , kan-extensions
     , optparse-applicative

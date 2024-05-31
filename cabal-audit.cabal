@@ -69,7 +69,7 @@ library
     , filepath
     , fused-effects
     , hsec-core             ^>=0.1
-    , hsec-tools            ^>=0.1
+    , hsec-tools            ^>=0.2
     , http-client
     , kan-extensions
     , optparse-applicative

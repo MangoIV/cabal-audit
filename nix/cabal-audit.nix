@@ -19,8 +19,10 @@
   process,
   temporary,
   text,
+  transformers,
   unliftio,
   validation-selective,
+  vector,
 }:
 mkDerivation {
   pname = "cabal-audit";
@@ -46,8 +48,10 @@ mkDerivation {
     process
     temporary
     text
+    transformers
     unliftio
     validation-selective
+    vector
   ];
   executableHaskellDepends = [base];
   testHaskellDepends = [base hspec];

@@ -6,6 +6,6 @@ source-repository-package
   type: git
   subdir: code/hsec-tools
   location: https://github.com/mangoiv/security-advisories.git
-  tag: 8e8b11e08d8026af91f4487391935dcdc8833c75
+  tag: c1703e8cdb1b78a8692921a74a0584b66bef917e
 
 test-show-details: direct

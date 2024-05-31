@@ -1,4 +1,11 @@
 packages:
   ./.
 
+-- https://github.com/haskell/security-advisories/pull/201
+source-repository-package
+  type: git
+  subdir: code/hsec-tools
+  location: https://github.com/mangoiv/security-advisories.git
+  tag: 8e8b11e08d8026af91f4487391935dcdc8833c75
+
 test-show-details: direct

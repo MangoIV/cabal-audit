@@ -100,7 +100,11 @@
               cabal2nix cabal://hsec-core > ./hsec-core.nix
               cabal2nix cabal://cvss > ./cvss.nix
               cabal2nix cabal://osv > ./osv.nix
-              cabal2nix cabal://hsec-tools > ./hsec-tools.nix
+              # https://github.com/haskell/security-advisories/pull/201
+              # cabal2nix cabal://hsec-tools > ./hsec-tools.nix
+              cabal2nix https://github.com/haskell/security-advisories.git \
+                --revision 8e8b11e08d8026af91f4487391935dcdc8833c75 \
+                --subpath code/hsec-tools/ > ./hsec-tools.nix
               cabal2nix ../. > ./cabal-audit.nix
               alejandra ./.
               popd

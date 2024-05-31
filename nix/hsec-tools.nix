@@ -12,6 +12,7 @@
   directory,
   extra,
   feed,
+  fetchgit,
   filepath,
   hsec-core,
   lib,
@@ -31,12 +32,19 @@
   text,
   time,
   toml-parser,
+  transformers,
   validation-selective,
 }:
 mkDerivation {
   pname = "hsec-tools";
-  version = "0.1.0.0";
-  sha256 = "06c1b1278cbceda0059074a98c3fce2691ccecb25f8fcdcea97218c2d7f388e0";
+  version = "0.2.0.0";
+  src = fetchgit {
+    url = "https://github.com/haskell/security-advisories.git";
+    sha256 = "0j7q8mmlgi5rw82h75rz3nfh6d36qw805hwwy9d5mmchdpsgpall";
+    rev = "8e8b11e08d8026af91f4487391935dcdc8833c75";
+    fetchSubmodules = true;
+  };
+  postUnpack = "sourceRoot+=/code/hsec-tools/; echo source root reset to $sourceRoot";
   isLibrary = true;
   isExecutable = true;
   libraryHaskellDepends = [
@@ -74,6 +82,7 @@ mkDerivation {
     hsec-core
     optparse-applicative
     text
+    transformers
     validation-selective
   ];
   testHaskellDepends = [

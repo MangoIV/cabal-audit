@@ -10,9 +10,8 @@ module Distribution.Audit (auditMain, buildAdvisories, AuditConfig (..), AuditEx
 
 import Colourista.Pure (blue, bold, formatWith, green, red, yellow)
 import Control.Algebra (Has)
-import Control.Carrier.Error.Church (runError)
 import Control.Carrier.Lift (runM)
-import Control.Exception (Exception (displayException), SomeException (SomeException))
+import Control.Exception (Exception (displayException), SomeException (SomeException), catch)
 import Control.Monad (when)
 import Control.Monad.Codensity (Codensity (Codensity, runCodensity))
 import Data.Aeson (KeyValue ((.=)), Value, object)
@@ -50,7 +49,7 @@ import Security.Advisories.Filesystem (listAdvisories)
 import System.Exit (exitFailure)
 import System.IO (Handle, IOMode (WriteMode), stdout, withFile)
 import System.Process (callProcess)
-import UnliftIO (MonadIO (..), MonadUnliftIO (..), catch, throwIO, withSystemTempDirectory)
+import UnliftIO (MonadIO (..), MonadUnliftIO (..), throwIO, withSystemTempDirectory)
 import Validation (validation)
 
 pwetty :: Has (Pretty [Text]) sig m => Handle -> Vector ([Text], Text) -> m ()
@@ -136,10 +135,10 @@ buildAdvisories MkAuditConfig {advisoriesPathOrURL, verbosity} flags = do
   let cliConfig = projectConfigFromFlags flags
 
   ProjectBaseContext {distDirLayout, cabalDirLayout, projectConfig, localPackages} <-
-    runError
-      (\ex -> throwIO $ CabalException {reason = "trying to establish project base context", cabalException = ex})
-      pure
-      do liftIO (establishProjectBaseContext verbosity cliConfig OtherCommand)
+    liftIO do
+      establishProjectBaseContext verbosity cliConfig OtherCommand
+        `catch` \ex ->
+          throwIO $ CabalException {reason = "trying to establish project base context", cabalException = ex}
 
   -- the two plans are
   -- 1. the "improved plan" with packages replaced by in-store packages
@@ -147,7 +146,7 @@ buildAdvisories MkAuditConfig {advisoriesPathOrURL, verbosity} flags = do
   --
   -- as far as I can tell, for our use case these should be indistinguishable
   (_improvedPlan, plan, _, _, _) <-
-    liftIO $
+    liftIO do
       rebuildInstallPlan verbosity distDirLayout cabalDirLayout projectConfig localPackages Nothing
         `catch` \ex -> throwIO $ CabalException {reason = "elaborating the install-plan", cabalException = ex}
 

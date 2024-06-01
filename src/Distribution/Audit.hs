@@ -114,6 +114,7 @@ auditMain = do
         ]
   let interpPretty :: forall m a. PrettyC [Text] m a -> m a
       interpPretty = if noColour auditConfig then runPretty (const id) else runPretty formatWith
+
       interp = runM . interpPretty
   do
     interp do
@@ -186,7 +187,7 @@ osvHandler mkHandle mp =
               ]
         ]
 
--- | pretty-prints a `Version`
+-- | pretty-prints a 'Version'
 --
 -- >>> import Distribution.Version
 -- >>> prettyVersion $ mkVersion [0, 1, 0, 0]
@@ -198,13 +199,15 @@ prettyVersion = fromString . List.intercalate "." . map show . versionNumbers
 prettyAdvisory :: Advisory -> Maybe Version -> Vector ([Text], Text)
 prettyAdvisory Advisory {advisoryId, advisoryPublished, advisoryKeywords, advisorySummary} mfv =
   let hsecId = T.pack (printHsecId advisoryId)
-   in fmap (\line -> "  " <> line <> "\n")
-        <$> [ ([bold, blue], hsecId <> " \"" <> advisorySummary <> "\"")
-            , ([], "published: ") <> ([bold], T.pack $ show advisoryPublished)
-            , ([], "https://haskell.github.io/security-advisories/advisory/" <> hsecId)
-            ]
-          <> fixAvailable
-          <> [([blue], T.intercalate ", " (coerce advisoryKeywords))]
+      indentLine line = [([], "  ")] <> line <> [([], "\n")]
+   in foldMap @[]
+        indentLine
+        [ [([bold, blue], hsecId <> " \"" <> advisorySummary <> "\"")]
+        , [([], "published: ") <> ([bold], T.pack $ show advisoryPublished)]
+        , [([], "https://haskell.github.io/security-advisories/advisory/" <> hsecId)]
+        , fixAvailable
+        , [([blue], T.intercalate ", " (coerce advisoryKeywords))]
+        ]
  where
   fixAvailable = case mfv of
     Nothing -> [([bold, red], "No fix version available")]
@@ -214,7 +217,11 @@ withRunCodensityInIO :: MonadUnliftIO m => Codensity IO a -> (a -> m b) -> m b
 withRunCodensityInIO cod k = withRunInIO \inIO -> runCodensity cod (inIO . k)
 
 -- | this is handler is used when displaying to the user
-humanReadableHandler :: (MonadUnliftIO m, Has (Pretty [Text]) sig m) => Codensity IO Handle -> [(PackageName, ElaboratedPackageInfoAdvised)] -> m ()
+humanReadableHandler
+  :: (MonadUnliftIO m, Has (Pretty [Text]) sig m)
+  => Codensity IO Handle
+  -> [(PackageName, ElaboratedPackageInfoAdvised)]
+  -> m ()
 humanReadableHandler mkHandle =
   withRunCodensityInIO mkHandle . flip \hdl -> \case
     [] -> pwetty hdl [([green, bold], "No advisories found.")]

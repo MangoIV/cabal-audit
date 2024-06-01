@@ -40,7 +40,7 @@ import Distribution.Client.Setup (defaultGlobalFlags)
 import Distribution.Types.PackageName (PackageName, unPackageName)
 import Distribution.Verbosity qualified as Verbosity
 import Distribution.Version (Version, versionNumbers)
-import Effect.Pretty (Pretty, PrettyC, owo, pwetty, runPretty)
+import Effect.Pretty (Pretty, PrettyC, pretty, prettyStdErr, runPretty)
 import GHC.Generics (Generic)
 import Options.Applicative
 import Security.Advisories (Advisory (..), Keyword (..), ParseAdvisoryError (..), printHsecId)
@@ -52,6 +52,12 @@ import System.IO (Handle, IOMode (WriteMode), stdout, withFile)
 import System.Process (callProcess)
 import UnliftIO (MonadIO (..), MonadUnliftIO (..), catch, throwIO, withSystemTempDirectory)
 import Validation (validation)
+
+pwetty :: Has (Pretty [Text]) sig m => Handle -> Vector ([Text], Text) -> m ()
+pwetty = pretty
+
+owo :: Has (Pretty [Text]) sig m => Vector ([Text], Text) -> m ()
+owo = prettyStdErr
 
 data AuditException
   = -- | parsing the advisory database failed
@@ -114,7 +120,7 @@ auditMain = do
       buildAdvisories auditConfig nixStyleFlags
         >>= handleBuiltAdvisories (outputHandle auditConfig) (outputFormat auditConfig)
     `catch` \(SomeException ex) -> runM $ interpPretty do
-      owo @[Text]
+      owo
         [ ([red, bold], "cabal-audit failed:\n")
         , ([red], T.pack $ displayException ex)
         ]
@@ -145,7 +151,7 @@ buildAdvisories MkAuditConfig {advisoriesPathOrURL, verbosity} flags = do
         `catch` \ex -> throwIO $ CabalException {reason = "elaborating the install-plan", cabalException = ex}
 
   when (verbosity > Verbosity.normal) do
-    owo @[Text] [([blue], "Finished building the cabal install plan, looking for advisories...")]
+    owo [([blue], "Finished building the cabal install plan, looking for advisories...")]
 
   advisories <- do
     let k realPath =
@@ -154,7 +160,7 @@ buildAdvisories MkAuditConfig {advisoriesPathOrURL, verbosity} flags = do
     case advisoriesPathOrURL of
       Left fp -> k fp
       Right url -> withSystemTempDirectory "cabal-audit" \tmp -> do
-        owo @[Text] [([blue], "trying to clone " <> T.pack url)]
+        owo [([blue], "trying to clone " <> T.pack url)]
         liftIO $ callProcess "git" ["clone", "--depth", "1", url, tmp]
         k tmp
 
@@ -211,13 +217,13 @@ withRunCodensityInIO cod k = withRunInIO \inIO -> runCodensity cod (inIO . k)
 humanReadableHandler :: (MonadUnliftIO m, Has (Pretty [Text]) sig m) => Codensity IO Handle -> [(PackageName, ElaboratedPackageInfoAdvised)] -> m ()
 humanReadableHandler mkHandle =
   withRunCodensityInIO mkHandle . flip \hdl -> \case
-    [] -> pwetty @[Text] hdl [([green, bold], "No advisories found.")]
+    [] -> pwetty hdl [([green, bold], "No advisories found.")]
     avs -> do
-      pwetty @[Text] hdl [([bold, red], "\n\nFound advisories:\n")]
+      pwetty hdl [([bold, red], "\n\nFound advisories:\n")]
       for_ avs \(pn, i) -> do
         let verString = ([yellow], prettyVersion $ elaboratedPackageVersion i)
             pkgName = ([yellow], T.pack $ show $ unPackageName pn)
-        pwetty @[Text] hdl [([], "dependency "), pkgName, ([], " at version "), verString, ([], " is vulnerable for:")]
+        pwetty hdl [([], "dependency "), pkgName, ([], " at version "), verString, ([], " is vulnerable for:")]
         for_ (runIdentity (packageAdvisories i)) (pwetty hdl . uncurry prettyAdvisory)
 
 projectConfigFromFlags :: NixStyleFlags a -> ProjectConfig

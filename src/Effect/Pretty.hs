@@ -1,4 +1,13 @@
-module Effect.Pretty (Pretty (..), PrettyC (..), runPretty, BlandC (..), pwetty, uwu, owo) where
+module Effect.Pretty
+  ( Pretty (..)
+  , PrettyC (..)
+  , runPretty
+  , BlandC (..)
+  , prettyStdErr
+  , prettyStdOut
+  , pretty
+  )
+where
 
 import Control.Algebra (Algebra (..), Has, send, (:+:) (..))
 import Control.Carrier.Reader (ReaderC (..))
@@ -10,14 +19,14 @@ import Data.Vector (Vector)
 import System.IO (Handle, stderr, stdout)
 import UnliftIO (MonadIO (..), MonadUnliftIO)
 
-pwetty :: Has (Pretty spec) sig m => Handle -> Vector (spec, Text) -> m ()
-pwetty hdl line = send $ PrettyLine hdl line
+pretty :: forall spec sig m. Has (Pretty spec) sig m => Handle -> Vector (spec, Text) -> m ()
+pretty hdl line = send $ PrettyLine hdl line
 
-owo :: Has (Pretty spec) sig m => Vector (spec, Text) -> m ()
-owo = pwetty stderr
+prettyStdErr :: Has (Pretty spec) sig m => Vector (spec, Text) -> m ()
+prettyStdErr = pretty stderr
 
-uwu :: Has (Pretty spec) sig m => Vector (spec, Text) -> m ()
-uwu = pwetty stdout
+prettyStdOut :: Has (Pretty spec) sig m => Vector (spec, Text) -> m ()
+prettyStdOut = pretty stdout
 
 type Pretty :: Type -> (Type -> Type) -> Type -> Type
 data Pretty spec m r where

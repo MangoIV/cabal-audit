@@ -11,6 +11,7 @@ module Distribution.Audit (auditMain, buildAdvisories, AuditConfig (..), AuditEx
 import Colourista.Pure (blue, bold, formatWith, green, red, yellow)
 import Control.Algebra (Has)
 import Control.Carrier.Lift (runM)
+import Control.Effect.Pretty (Pretty, PrettyC, pretty, prettyStdErr, runPretty)
 import Control.Exception (Exception (displayException), SomeException (SomeException), catch)
 import Control.Monad (when)
 import Control.Monad.Codensity (Codensity (Codensity, runCodensity))
@@ -39,7 +40,6 @@ import Distribution.Client.Setup (defaultGlobalFlags)
 import Distribution.Types.PackageName (PackageName, unPackageName)
 import Distribution.Verbosity qualified as Verbosity
 import Distribution.Version (Version, versionNumbers)
-import Effect.Pretty (Pretty, PrettyC, pretty, prettyStdErr, runPretty)
 import GHC.Generics (Generic)
 import Options.Applicative
 import Security.Advisories (Advisory (..), Keyword (..), ParseAdvisoryError (..), printHsecId)

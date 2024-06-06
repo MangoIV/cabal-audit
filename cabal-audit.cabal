@@ -64,8 +64,8 @@ common common-all
 library
   import:           common-all
   exposed-modules:
+    Control.Effect.Pretty
     Distribution.Audit
-    Effect.Pretty
     Security.Advisories.Cabal
 
   build-depends:

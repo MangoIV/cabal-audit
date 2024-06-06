@@ -1,4 +1,4 @@
-module Effect.Pretty
+module Control.Effect.Pretty
   ( Pretty (..)
   , PrettyC (..)
   , runPretty

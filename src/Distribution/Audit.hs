@@ -46,7 +46,7 @@ import Security.Advisories (Advisory (..), Keyword (..), ParseAdvisoryError (..)
 import Security.Advisories.Cabal (ElaboratedPackageInfoAdvised, ElaboratedPackageInfoWith (..), matchAdvisoriesForPlan)
 import Security.Advisories.Convert.OSV qualified as OSV
 import Security.Advisories.Filesystem (listAdvisories)
-import System.Exit
+import System.Exit (ExitCode (..), exitWith, exitFailure)
 import System.IO (Handle, IOMode (WriteMode), stdout, withFile)
 import System.Process (callProcess)
 import UnliftIO (MonadIO (..), MonadUnliftIO (..), throwIO, withSystemTempDirectory)

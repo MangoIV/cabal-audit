@@ -123,8 +123,7 @@ auditMain = do
       handleBuiltAdvisories (outputHandle auditConfig) (outputFormat auditConfig) advisories
       when (auditConfig.failOnWarning && not (null advisories)) $ do
         owo
-          [ ([red], T.pack (show (length advisories)) <> T.pack " advisories found.")
-          ]
+          [([red], T.pack (show (length advisories)) <> T.pack " advisories found.")]
         liftIO exitFailure
     `catch` \ex -> do
       case fromException ex :: Maybe ExitCode of
@@ -133,7 +132,7 @@ auditMain = do
         Nothing -> pure ()
       runM $ interpPretty do
         owo
-          [ ([red, bold], "!!! cabal-audit failed :\n")
+          [ ([red, bold], "cabal-audit failed :\n")
           , ([red], T.pack $ displayException ex)
           ]
         liftIO exitFailure

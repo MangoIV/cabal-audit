@@ -39,6 +39,7 @@ common common-all
     DeriveGeneric
     DerivingStrategies
     DerivingVia
+    DuplicateRecordFields
     EmptyCase
     FlexibleContexts
     FlexibleInstances
@@ -48,7 +49,6 @@ common common-all
     MultiParamTypeClasses
     NamedFieldPuns
     NoStarIsType
-    OverloadedLists
     OverloadedLists
     OverloadedRecordDot
     OverloadedStrings

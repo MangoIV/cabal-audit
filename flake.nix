@@ -50,6 +50,8 @@
           };
         };
 
+        devShells.plain-haskell = import ./nix/haskell-shell.nix {inherit hspkgs;};
+
         # https://flake.parts/options/devshell for more information; one of the advantages is
         # the beautiful menu this provides where one can add commands that are offered and loaded
         # as part of the devShell
@@ -69,7 +71,7 @@
           ];
           devshell = {
             name = "cabal-audit";
-            packagesFrom = [(import ./nix/haskell-shell.nix {inherit hspkgs;})];
+            packagesFrom = [config.devShells.plain-haskell];
             packages = [pkgs.cabal2nix pkgs.alejandra];
             startup.pre-commit.text = config.pre-commit.installationScript;
           };

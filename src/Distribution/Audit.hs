@@ -12,7 +12,7 @@ import Colourista.Pure (blue, bold, formatWith, green, red, yellow)
 import Control.Algebra (Has)
 import Control.Carrier.Lift (runM)
 import Control.Effect.Pretty (Pretty, PrettyC, pretty, prettyStdErr, runPretty)
-import Control.Exception (Exception (displayException), SomeException (SomeException), catch)
+import Control.Exception (Exception (displayException), SomeException (SomeException))
 import Control.Monad (when)
 import Control.Monad.Codensity (Codensity (Codensity, runCodensity))
 import Data.Aeson (KeyValue ((.=)), Value, object)
@@ -49,7 +49,7 @@ import Security.Advisories.SBom.Types (prettyVersion)
 import System.Exit (exitFailure)
 import System.IO (Handle, IOMode (WriteMode), stdout, withFile)
 import System.Process (callProcess)
-import UnliftIO (MonadIO (..), MonadUnliftIO (..), throwIO, withSystemTempDirectory)
+import UnliftIO (MonadIO (..), MonadUnliftIO (..), catch, throwIO, withSystemTempDirectory)
 import Validation (validation)
 
 pwetty :: Has (Pretty [Text]) sig m => Handle -> Vector ([Text], Text) -> m ()
@@ -99,6 +99,8 @@ data AuditConfig = MkAuditConfig
   -- ^ which handle to write to
   , noColour :: Bool
   -- ^ whether or not to write coloured output
+  , failOnWarning :: Bool
+  -- ^ whether to exit with a non-success code when advisories are found
   }
 
 -- | the main action to invoke
@@ -114,16 +116,22 @@ auditMain = do
   let interpPretty :: forall m a. PrettyC [Text] m a -> m a
       interpPretty = if noColour auditConfig then runPretty (const id) else runPretty formatWith
 
-      interp = runM . interpPretty
-  do
-    interp do
-      buildAdvisories auditConfig nixStyleFlags
-        >>= handleBuiltAdvisories (outputHandle auditConfig) (outputFormat auditConfig)
-    `catch` \(SomeException ex) -> runM $ interpPretty do
+  runM $ interpPretty do
+    advisories <-
+      ( do
+          advisories <- buildAdvisories auditConfig nixStyleFlags
+          handleBuiltAdvisories (outputHandle auditConfig) (outputFormat auditConfig) advisories
+          pure advisories
+        )
+        `catch` \(SomeException ex) -> do
+          owo
+            [ ([red, bold], "cabal-audit failed :\n")
+            , ([red], T.pack $ displayException ex)
+            ]
+          liftIO exitFailure
+    when (auditConfig.failOnWarning && not (null advisories)) $ do
       owo
-        [ ([red, bold], "cabal-audit failed:\n")
-        , ([red], T.pack $ displayException ex)
-        ]
+        [([red], T.pack (show (length advisories)) <> T.pack " advisories found.")]
       liftIO exitFailure
 
 buildAdvisories
@@ -279,6 +287,11 @@ auditCommandParser =
             , long "no-color"
             , short 'b'
             , help "don't colour the output"
+            ]
+        <*> switch do
+          mconcat
+            [ long "fail-on-warning"
+            , help "Exits with an error code if any advisories are found in the build plan"
             ]
     -- FUTUREWORK(mangoiv): this will accept cabal flags as an additional argument with something like
     -- --cabal-flags "--some-cabal-flag" and print a helper that just forwards the cabal help text

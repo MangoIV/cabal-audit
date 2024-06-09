@@ -15,13 +15,7 @@
 mkDerivation {
   pname = "hsec-core";
   version = "0.1.0.0";
-  src = fetchgit {
-    url = "https://github.com/haskell/security-advisories.git";
-    sha256 = "090rlbnlval16xh5ajpn7c3mymqpxhwjfmsbkxvcrk7zn28p6w7p";
-    rev = "061e2e466565de1167b5a116cdc1d621f70af268";
-    fetchSubmodules = true;
-  };
-  postUnpack = "sourceRoot+=/code/hsec-core/; echo source root reset to $sourceRoot";
+  sha256 = "036d33f56b0de81e85031eb2bb5357b4f36eaf3c50b22b5214258f1d76dbc679";
   libraryHaskellDepends = [
     base
     Cabal-syntax

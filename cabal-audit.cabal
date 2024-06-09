@@ -69,6 +69,8 @@ library
     Control.Effect.Pretty
     Distribution.Audit
     Security.Advisories.Cabal
+    Security.Advisories.SBom.CycloneDX
+    Security.Advisories.SBom.Types
 
   build-depends:
     , aeson
@@ -76,20 +78,24 @@ library
     , bytestring
     , Cabal
     , cabal-install
+    , chronos
     , colourista
     , containers
     , filepath
     , fused-effects
-    , hsec-core             ^>=0.1
-    , hsec-tools            ^>=0.2
+    , hsec-core
+    , hsec-tools
     , http-client
     , kan-extensions
     , optparse-applicative
+    , pretty
     , process
+    , sel
     , temporary
     , text
     , transformers
     , unliftio
+    , uuid
     , validation-selective
     , vector
 

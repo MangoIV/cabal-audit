@@ -21,7 +21,6 @@ import Data.ByteString.Lazy qualified as BSL
 import Data.Coerce (coerce)
 import Data.Foldable (for_)
 import Data.Functor.Identity (Identity (runIdentity))
-import Data.List qualified as List
 import Data.Map qualified as M
 import Data.String (IsString (fromString))
 import Data.Text (Text)
@@ -39,13 +38,14 @@ import Distribution.Client.ProjectPlanning (rebuildInstallPlan)
 import Distribution.Client.Setup (defaultGlobalFlags)
 import Distribution.Types.PackageName (PackageName, unPackageName)
 import Distribution.Verbosity qualified as Verbosity
-import Distribution.Version (Version, versionNumbers)
+import Distribution.Version (Version)
 import GHC.Generics (Generic)
 import Options.Applicative
 import Security.Advisories (Advisory (..), Keyword (..), ParseAdvisoryError (..), printHsecId)
 import Security.Advisories.Cabal (ElaboratedPackageInfoAdvised, ElaboratedPackageInfoWith (..), matchAdvisoriesForPlan)
 import Security.Advisories.Convert.OSV qualified as OSV
 import Security.Advisories.Filesystem (listAdvisories)
+import Security.Advisories.SBom.Types (prettyVersion)
 import System.Exit (exitFailure)
 import System.IO (Handle, IOMode (WriteMode), stdout, withFile)
 import System.Process (callProcess)
@@ -186,16 +186,7 @@ osvHandler mkHandle mp =
               ]
         ]
 
--- | pretty-prints a 'Version'
---
--- >>> import Distribution.Version
--- >>> prettyVersion $ mkVersion [0, 1, 0, 0]
--- "0.1.0.0"
-prettyVersion :: IsString s => Version -> s
-prettyVersion = fromString . List.intercalate "." . map show . versionNumbers
-{-# INLINE prettyVersion #-}
-
-prettyAdvisory :: Advisory -> Maybe Version -> Vector ([Text], Text)
+prettyAdvisory :: Advisory -> Maybe Version -> Text
 prettyAdvisory Advisory {advisoryId, advisoryPublished, advisoryKeywords, advisorySummary} mfv =
   let hsecId = T.pack (printHsecId advisoryId)
       indentLine line = [([], "  ")] <> line <> [([], "\n")]

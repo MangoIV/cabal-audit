@@ -5,6 +5,7 @@
   bytestring,
   Cabal,
   cabal-install,
+  chronos,
   colourista,
   containers,
   filepath,
@@ -16,11 +17,14 @@
   kan-extensions,
   lib,
   optparse-applicative,
+  pretty,
   process,
+  sel,
   temporary,
   text,
   transformers,
   unliftio,
+  uuid,
   validation-selective,
   vector,
 }:
@@ -36,6 +40,7 @@ mkDerivation {
     bytestring
     Cabal
     cabal-install
+    chronos
     colourista
     containers
     filepath
@@ -45,11 +50,14 @@ mkDerivation {
     http-client
     kan-extensions
     optparse-applicative
+    pretty
     process
+    sel
     temporary
     text
     transformers
     unliftio
+    uuid
     validation-selective
     vector
   ];

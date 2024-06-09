@@ -12,7 +12,7 @@ import Colourista.Pure (blue, bold, formatWith, green, red, yellow)
 import Control.Algebra (Has)
 import Control.Carrier.Lift (runM)
 import Control.Effect.Pretty (Pretty, PrettyC, pretty, prettyStdErr, runPretty)
-import Control.Exception (Exception (displayException, fromException), SomeException (SomeException), catch)
+import Control.Exception (Exception (displayException), SomeException (SomeException))
 import Control.Monad (when)
 import Control.Monad.Codensity (Codensity (Codensity, runCodensity))
 import Data.Aeson (KeyValue ((.=)), Value, object)
@@ -46,10 +46,10 @@ import Security.Advisories (Advisory (..), Keyword (..), ParseAdvisoryError (..)
 import Security.Advisories.Cabal (ElaboratedPackageInfoAdvised, ElaboratedPackageInfoWith (..), matchAdvisoriesForPlan)
 import Security.Advisories.Convert.OSV qualified as OSV
 import Security.Advisories.Filesystem (listAdvisories)
-import System.Exit (ExitCode (..), exitWith, exitFailure)
+import System.Exit (exitFailure)
 import System.IO (Handle, IOMode (WriteMode), stdout, withFile)
 import System.Process (callProcess)
-import UnliftIO (MonadIO (..), MonadUnliftIO (..), throwIO, withSystemTempDirectory)
+import UnliftIO (MonadIO (..), MonadUnliftIO (..), catch, throwIO, withSystemTempDirectory)
 import Validation (validation)
 
 pwetty :: Has (Pretty [Text]) sig m => Handle -> Vector ([Text], Text) -> m ()
@@ -116,26 +116,23 @@ auditMain = do
   let interpPretty :: forall m a. PrettyC [Text] m a -> m a
       interpPretty = if noColour auditConfig then runPretty (const id) else runPretty formatWith
 
-      interp = runM . interpPretty
-  do
-    interp do
-      advisories <- buildAdvisories auditConfig nixStyleFlags
-      handleBuiltAdvisories (outputHandle auditConfig) (outputFormat auditConfig) advisories
-      when (auditConfig.failOnWarning && not (null advisories)) $ do
-        owo
-          [([red], T.pack (show (length advisories)) <> T.pack " advisories found.")]
-        liftIO exitFailure
-    `catch` \ex -> do
-      case fromException ex :: Maybe ExitCode of
-        Just (ExitFailure _code) -> exitFailure
-        Just e -> exitWith e
-        Nothing -> pure ()
-      runM $ interpPretty do
-        owo
-          [ ([red, bold], "cabal-audit failed :\n")
-          , ([red], T.pack $ displayException ex)
-          ]
-        liftIO exitFailure
+  runM $ interpPretty do
+    advisories <-
+      ( do
+          advisories <- buildAdvisories auditConfig nixStyleFlags
+          handleBuiltAdvisories (outputHandle auditConfig) (outputFormat auditConfig) advisories
+          pure advisories
+        )
+        `catch` \(SomeException ex) -> do
+          owo
+            [ ([red, bold], "cabal-audit failed :\n")
+            , ([red], T.pack $ displayException ex)
+            ]
+          liftIO exitFailure
+    when (auditConfig.failOnWarning && not (null advisories)) $ do
+      owo
+        [([red], T.pack (show (length advisories)) <> T.pack " advisories found.")]
+      liftIO exitFailure
 
 buildAdvisories
   :: (MonadUnliftIO m, Has (Pretty [Text]) sig m)

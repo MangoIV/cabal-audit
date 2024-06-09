@@ -194,7 +194,7 @@ osvHandler mkHandle mp =
               ]
         ]
 
-prettyAdvisory :: Advisory -> Maybe Version -> Text
+prettyAdvisory :: Advisory -> Maybe Version -> Vector ([Text], Text)
 prettyAdvisory Advisory {advisoryId, advisoryPublished, advisoryKeywords, advisorySummary} mfv =
   let hsecId = T.pack (printHsecId advisoryId)
       indentLine line = [([], "  ")] <> line <> [([], "\n")]

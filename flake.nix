@@ -99,13 +99,17 @@
             runtimeInputs = [pkgs.cabal2nix pkgs.alejandra];
             text = ''
               pushd "$PRJ_ROOT"/nix
-              cabal2nix cabal://hsec-core > ./hsec-core.nix
+              cabal2nix cabal://toml-parser > ./toml-parser.nix
               cabal2nix cabal://cvss > ./cvss.nix
               cabal2nix cabal://osv > ./osv.nix
-              # https://github.com/haskell/security-advisories/pull/201
+              # unreleased changes
+              # cabal2nix cabal://hsec-core > ./hsec-core.nix
               # cabal2nix cabal://hsec-tools > ./hsec-tools.nix
               cabal2nix https://github.com/haskell/security-advisories.git \
-                --revision 8e8b11e08d8026af91f4487391935dcdc8833c75 \
+                --revision 4b773dd6d3ab31313fa7f2470053980af175bf27 \
+                --subpath code/hsec-core/ > ./hsec-core.nix
+              cabal2nix https://github.com/haskell/security-advisories.git \
+                --revision 4b773dd6d3ab31313fa7f2470053980af175bf27 \
                 --subpath code/hsec-tools/ > ./hsec-tools.nix
               cabal2nix ../. > ./cabal-audit.nix
               alejandra ./.

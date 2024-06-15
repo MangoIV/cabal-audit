@@ -13,6 +13,7 @@
   extra,
   feed,
   fetchgit,
+  file-embed,
   filepath,
   hsec-core,
   lib,
@@ -29,6 +30,7 @@
   tasty,
   tasty-golden,
   tasty-hunit,
+  template-haskell,
   text,
   time,
   toml-parser,
@@ -40,8 +42,8 @@ mkDerivation {
   version = "0.2.0.0";
   src = fetchgit {
     url = "https://github.com/haskell/security-advisories.git";
-    sha256 = "0j7q8mmlgi5rw82h75rz3nfh6d36qw805hwwy9d5mmchdpsgpall";
-    rev = "8e8b11e08d8026af91f4487391935dcdc8833c75";
+    sha256 = "1pi643pgsb3l9a7i2003wn3x3wh8sji8p5s5zz1nfj29qy2j0ldq";
+    rev = "4b773dd6d3ab31313fa7f2470053980af175bf27";
     fetchSubmodules = true;
   };
   postUnpack = "sourceRoot+=/code/hsec-tools/; echo source root reset to $sourceRoot";
@@ -50,6 +52,7 @@ mkDerivation {
   libraryHaskellDepends = [
     aeson
     base
+    bytestring
     Cabal-syntax
     commonmark
     commonmark-pandoc
@@ -58,6 +61,7 @@ mkDerivation {
     directory
     extra
     feed
+    file-embed
     filepath
     hsec-core
     lucid
@@ -68,6 +72,7 @@ mkDerivation {
     pathwalk
     process
     safe
+    template-haskell
     text
     time
     toml-parser

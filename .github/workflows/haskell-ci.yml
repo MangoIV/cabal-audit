@@ -40,16 +40,15 @@ jobs:
         with:
           ghc-version: ${{ matrix.ghc }}
           cabal-version: 'latest'
-      - name: Set up environment for ${{ matrix.os }}
-        run: |
-          if [ "${{ matrix.os }}" == "ubuntu-latest" ]; then
-            sudo apt-get update
-            sudo apt-get install -y libsodium-dev
-          elif [ "${{ matrix.os }}" == "macos-latest" ]; then
-            brew install libsodium
-          elif [ "${{ matrix.os }}" == "windows-latest" ]; then
-            choco install libsodium --version=1.0.18
-          fi
+      - name: Install libsodium ubuntu
+        if: matrix.os == 'ubuntu-latest'
+        run: sudo apt-get install -y libsodium-dev
+      - name: Install libsodium macos
+        if: matrix.os == 'macos-latest'
+        run: brew install libsodium
+      - name: Install libsodium windows
+        if: matrix.os == 'windows-latest'
+        run:  choco install libsodium --version=1.0.18
       - name: Update 
         run: cabal update
       - name: Freeze

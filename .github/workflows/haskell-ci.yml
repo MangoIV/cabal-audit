@@ -1,4 +1,4 @@
-name: Build cabal-audit with many ghc versions
+name: cabal-build cabal-audit
 
 on:
   workflow_dispatch:

@@ -1,4 +1,4 @@
-name: Build cabal-audit
+name: check nix regeneration
 
 on:
   pull_request:

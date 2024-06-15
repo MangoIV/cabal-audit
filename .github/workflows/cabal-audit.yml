@@ -1,4 +1,4 @@
-name: Build cabal-audit
+name: nix checks and build
 
 on:
   workflow_dispatch:

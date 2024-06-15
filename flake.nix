@@ -78,22 +78,10 @@
         };
 
         packages = {
+          inherit (hspkgs) cabal-audit;
+          inherit (pkgs) groff;
           default = config.packages.cabal-audit;
-          cabal-audit = hlib.justStaticExecutables hspkgs.cabal-audit;
-          cabal-audit-docker = pkgs.dockerTools.buildImage {
-            name = "cabal-audit-docker";
-            tag = "latest";
-            copyToRoot = [
-              config.packages.cabal-audit
-              pkgs.haskellPackages.ghc
-              pkgs.git
-              pkgs.wget
-            ];
-            config = {
-              Cmd = ["/bin/cabal-audit"];
-              WorkingDir = "/workspace";
-            };
-          };
+          cabal-audit-static = import ./nix/static.nix {inherit pkgs;};
           regen-nix = pkgs.writeShellApplication {
             name = "regen-cabal-audit-nix";
             runtimeInputs = [pkgs.cabal2nix pkgs.alejandra];

@@ -11,7 +11,7 @@ on:
 
 jobs:
   build:
-    name: Build cabal-audit and Docker image
+    name: Build cabal-audit
     runs-on: ubuntu-latest
 
     steps:
@@ -35,30 +35,22 @@ jobs:
         run: |
           nix -Lv build
 
-      - name: Build cabal-audit docker image
+      - name: Build cabal-audit static
         run: |
-          nix -Lv build .#cabal-audit-docker -o result-docker
+          nix -Lv build .#cabal-audit-static -o result-static
 
       - name: Create release artifacts
         run: | 
           mkdir -p artifacts
 
-          cp result/bin/cabal-audit artifacts
+          cp result-static/bin/cabal-audit artifacts
           chmod +x artifacts/cabal-audit
-
-          cp result-docker artifacts/cabal-audit-docker.tar
 
       - name: Upload static cabal-audit exe
         uses: actions/upload-artifact@v4
         with:
           name: cabal-audit
           path: artifacts/cabal-audit
-
-      - name: Upload cabal-audit docker
-        uses: actions/upload-artifact@v4
-        with:
-          name: cabal-audit-docker.tar
-          path: artifacts/cabal-audit-docker.tar
 
       - name: Release nightly cabal-audit exe
         if: github.ref == 'refs/heads/main'
@@ -68,5 +60,4 @@ jobs:
           tag_name: nightly
           files: |
             artifacts/cabal-audit
-            artifacts/cabal-audit-docker.tar
           fail_on_unmatched_files: true

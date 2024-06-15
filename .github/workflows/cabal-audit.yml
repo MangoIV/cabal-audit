@@ -46,6 +46,14 @@ jobs:
           cp result-static/bin/cabal-audit artifacts
           chmod +x artifacts/cabal-audit
 
+      - name: check if binary is static
+        run: | 
+          if ldd result/bin/cabal-audit 2>&1 | grep -q "not a dynamic executable"; then
+            echo "static executable"
+          else
+            echo "dynamic executable"
+            exit 1
+
       - name: Upload static cabal-audit exe
         uses: actions/upload-artifact@v4
         with:

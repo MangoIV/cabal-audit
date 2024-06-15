@@ -19,7 +19,6 @@
   optparse-applicative,
   pretty,
   process,
-  sel,
   temporary,
   text,
   transformers,
@@ -52,7 +51,6 @@ mkDerivation {
     optparse-applicative
     pretty
     process
-    sel
     temporary
     text
     transformers

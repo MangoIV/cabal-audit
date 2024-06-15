@@ -90,7 +90,6 @@ library
     , optparse-applicative
     , pretty
     , process
-    , sel
     , temporary
     , text
     , transformers

@@ -1,4 +1,4 @@
-name: cabal-build cabal-audit
+name: cabal build
 
 on:
   workflow_dispatch:

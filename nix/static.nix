@@ -3,7 +3,8 @@
   hlib = pkgsStatic.haskell.lib.compose;
   hspkgs = pkgsStatic.haskellPackages.override {
     overrides =
-      pkgs.lib.composeExtensions (import ./haskell-overlay.nix {inherit hlib;})
+      pkgs.lib.composeExtensions
+      (import ./haskell-overlay.nix {inherit hlib;})
       (_hself: hsuper: {
         cabal-install =
           hlib.overrideCabal {
@@ -25,4 +26,15 @@
       });
   };
 in
-  hlib.justStaticExecutables hspkgs.cabal-audit
+  (hlib.justStaticExecutables hspkgs.cabal-audit).overrideAttrs (old: {
+    postPhases = ["compressionPhase"];
+    nativeBuildInputs =
+      old.nativeBuildInputs
+      ++ [
+        pkgsStatic.upx
+      ];
+    compressionPhase = ''
+      echo "this might take a while.."
+      upx --quiet --best $out/bin/cabal-audit
+    '';
+  })

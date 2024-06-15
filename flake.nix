@@ -50,6 +50,8 @@
           };
         };
 
+        devShells.plain-haskell = import ./nix/haskell-shell.nix {inherit hspkgs;};
+
         # https://flake.parts/options/devshell for more information; one of the advantages is
         # the beautiful menu this provides where one can add commands that are offered and loaded
         # as part of the devShell
@@ -69,38 +71,34 @@
           ];
           devshell = {
             name = "cabal-audit";
-            packagesFrom = [(import ./nix/haskell-shell.nix {inherit pkgs hspkgs;})];
+            packagesFrom = [config.devShells.plain-haskell];
             packages = [pkgs.cabal2nix pkgs.alejandra];
             startup.pre-commit.text = config.pre-commit.installationScript;
           };
         };
 
         packages = {
+          inherit (hspkgs) cabal-audit;
+          inherit (pkgs) groff;
           default = config.packages.cabal-audit;
-          cabal-audit = hlib.justStaticExecutables hspkgs.cabal-audit;
-          cabal-audit-docker = pkgs.dockerTools.buildImage {
-            name = "cabal-audit-docker";
-            tag = "latest";
-            copyToRoot = [
-              config.packages.cabal-audit
-              pkgs.haskellPackages.ghc
-              pkgs.git
-              pkgs.wget
-            ];
-            config = {
-              Cmd = ["/bin/cabal-audit"];
-              WorkingDir = "/workspace";
-            };
-          };
+          cabal-audit-static = import ./nix/static.nix {inherit pkgs;};
           regen-nix = pkgs.writeShellApplication {
             name = "regen-cabal-audit-nix";
             runtimeInputs = [pkgs.cabal2nix pkgs.alejandra];
             text = ''
               pushd "$PRJ_ROOT"/nix
-              cabal2nix https://github.com/haskell/security-advisories.git --subpath code/hsec-core/ > ./hsec-core.nix
-              cabal2nix https://github.com/haskell/security-advisories.git --subpath code/cvss/ > ./cvss.nix
-              cabal2nix https://github.com/haskell/security-advisories.git --subpath code/osv/ > ./osv.nix
-              cabal2nix https://github.com/haskell/security-advisories.git --subpath code/hsec-tools/ > ./hsec-tools.nix
+              cabal2nix cabal://toml-parser > ./toml-parser.nix
+              cabal2nix cabal://cvss > ./cvss.nix
+              cabal2nix cabal://osv > ./osv.nix
+              # unreleased changes
+              # cabal2nix cabal://hsec-core > ./hsec-core.nix
+              # cabal2nix cabal://hsec-tools > ./hsec-tools.nix
+              cabal2nix https://github.com/haskell/security-advisories.git \
+                --revision 4b773dd6d3ab31313fa7f2470053980af175bf27 \
+                --subpath code/hsec-core/ > ./hsec-core.nix
+              cabal2nix https://github.com/haskell/security-advisories.git \
+                --revision 4b773dd6d3ab31313fa7f2470053980af175bf27 \
+                --subpath code/hsec-tools/ > ./hsec-tools.nix
               cabal2nix ../. > ./cabal-audit.nix
               alejandra ./.
               popd

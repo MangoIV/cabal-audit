@@ -1,4 +1,4 @@
-name: Build cabal-audit
+name: check nix regeneration
 
 on:
   pull_request:
@@ -25,6 +25,7 @@ jobs:
 
       - name: regenerate nix
         run: | 
+          nix run nixpkgs#cabal-install -- update
           export PRJ_ROOT=./.
           nix -Lv run .#regen-nix
 

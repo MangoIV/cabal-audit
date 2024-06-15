@@ -5,6 +5,7 @@
   bytestring,
   Cabal,
   cabal-install,
+  chronos,
   colourista,
   containers,
   filepath,
@@ -16,11 +17,15 @@
   kan-extensions,
   lib,
   optparse-applicative,
+  pretty,
   process,
   temporary,
   text,
+  transformers,
   unliftio,
+  uuid,
   validation-selective,
+  vector,
 }:
 mkDerivation {
   pname = "cabal-audit";
@@ -34,6 +39,7 @@ mkDerivation {
     bytestring
     Cabal
     cabal-install
+    chronos
     colourista
     containers
     filepath
@@ -43,11 +49,15 @@ mkDerivation {
     http-client
     kan-extensions
     optparse-applicative
+    pretty
     process
     temporary
     text
+    transformers
     unliftio
+    uuid
     validation-selective
+    vector
   ];
   executableHaskellDepends = [base];
   testHaskellDepends = [base hspec];

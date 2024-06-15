@@ -35,14 +35,22 @@ common common-all
 
   default-extensions:
     BlockArguments
+    DataKinds
     DeriveGeneric
     DerivingStrategies
+    DerivingVia
+    DuplicateRecordFields
     EmptyCase
+    FlexibleContexts
+    FlexibleInstances
     GADTs
     ImportQualifiedPost
     LambdaCase
+    MultiParamTypeClasses
     NamedFieldPuns
     NoStarIsType
+    OverloadedLists
+    OverloadedRecordDot
     OverloadedStrings
     PartialTypeSignatures
     RankNTypes
@@ -50,13 +58,19 @@ common common-all
     StandaloneDeriving
     StandaloneKindSignatures
     TypeApplications
+    TypeFamilies
+    TypeOperators
+    UndecidableInstances
     ViewPatterns
 
 library
   import:           common-all
   exposed-modules:
+    Control.Effect.Pretty
     Distribution.Audit
     Security.Advisories.Cabal
+    Security.Advisories.SBom.CycloneDX
+    Security.Advisories.SBom.Types
 
   build-depends:
     , aeson
@@ -64,6 +78,7 @@ library
     , bytestring
     , Cabal
     , cabal-install
+    , chronos
     , colourista
     , containers
     , filepath
@@ -73,11 +88,15 @@ library
     , http-client
     , kan-extensions
     , optparse-applicative
+    , pretty
     , process
     , temporary
     , text
+    , transformers
     , unliftio
+    , uuid
     , validation-selective
+    , vector
 
   hs-source-dirs:   src
   default-language: Haskell2010

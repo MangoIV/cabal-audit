@@ -1,12 +1,17 @@
 packages:
   ./.
 
+-- unreleased changes in hsec-tools and hsec-core
+source-repository-package
+  type: git
+  subdir: code/hsec-tools
+  location: https://github.com/haskell/security-advisories.git
+  tag: 4b773dd6d3ab31313fa7f2470053980af175bf27
+
 source-repository-package
   type: git
   subdir: code/hsec-core
-  subdir: code/hsec-tools
-  subdir: code/cvss
-  subdir: code/osv
   location: https://github.com/haskell/security-advisories.git
+  tag: 4b773dd6d3ab31313fa7f2470053980af175bf27
 
 test-show-details: direct

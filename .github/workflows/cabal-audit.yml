@@ -1,4 +1,4 @@
-name: nix checks and build
+name: nix build
 
 on:
   workflow_dispatch:

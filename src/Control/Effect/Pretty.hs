@@ -32,6 +32,7 @@ type Pretty :: Type -> (Type -> Type) -> Type -> Type
 data Pretty spec m r where
   PrettyLine :: Handle -> Vector (spec, Text) -> Pretty spec m ()
 
+type PrettyC :: Type -> (Type -> Type) -> Type -> Type
 newtype PrettyC spec m a = MkPrettyC {runPrettyC :: (spec -> Text -> Text) -> m a}
   deriving (Functor, Applicative, Monad, MonadIO, MonadUnliftIO) via ReaderC (spec -> Text -> Text) m
 

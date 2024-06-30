@@ -8,18 +8,14 @@
   chronos,
   colourista,
   containers,
-  filepath,
   fused-effects,
-  hsec-core,
   hsec-tools,
   hspec,
-  http-client,
   kan-extensions,
   lib,
   optparse-applicative,
   pretty,
   process,
-  temporary,
   text,
   transformers,
   unliftio,
@@ -42,16 +38,12 @@ mkDerivation {
     chronos
     colourista
     containers
-    filepath
     fused-effects
-    hsec-core
     hsec-tools
-    http-client
     kan-extensions
     optparse-applicative
     pretty
     process
-    temporary
     text
     transformers
     unliftio

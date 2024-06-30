@@ -1,5 +1,3 @@
-{-# OPTIONS_GHC -fno-max-refinement-hole-fits -fshow-valid-hole-fits #-}
-
 -- | provides the @cabal-audit@ plugin which works as follows:
 --
 -- 1. parse command line arguments to pass on to cabal to build
@@ -24,12 +22,12 @@ import Data.Coerce (coerce)
 import Data.Foldable (for_)
 import Data.Functor.Identity (Identity (runIdentity))
 import Data.Map qualified as M
-import Data.Maybe
+import Data.Maybe (mapMaybe)
 import Data.String (IsString (fromString))
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Vector (Vector)
-import Distribution.Audit.Parser
+import Distribution.Audit.Parser (AuditConfig (..), OutputFormat (..), auditCommandParser)
 import Distribution.Client.NixStyleOptions (NixStyleFlags)
 import Distribution.Client.ProjectConfig (ProjectConfig)
 import Distribution.Client.ProjectOrchestration
@@ -40,18 +38,18 @@ import Distribution.Client.ProjectOrchestration
   )
 import Distribution.Client.ProjectPlanning (rebuildInstallPlan)
 import Distribution.Client.Setup (defaultGlobalFlags)
-import Distribution.Client.Types
-import Distribution.Solver.Modular.Package
-import Distribution.Solver.Types.SourcePackage
-import Distribution.Types.BuildInfo
-import Distribution.Types.CondTree
-import Distribution.Types.Dependency
-import Distribution.Types.GenericPackageDescription
-import Distribution.Types.Library
+import Distribution.Client.Types (PackageSpecifier (SpecificSourcePackage), UnresolvedSourcePackage)
+import Distribution.Solver.Modular.Package (PackageIdentifier (pkgName), PackageName, unPackageName)
+import Distribution.Solver.Types.SourcePackage (srcpkgDescription, srcpkgPackageId)
+import Distribution.Types.BuildInfo (targetBuildDepends)
+import Distribution.Types.CondTree (condTreeData)
+import Distribution.Types.Dependency (Dependency)
+import Distribution.Types.GenericPackageDescription (condLibrary)
+import Distribution.Types.Library (libBuildInfo)
 import Distribution.Verbosity qualified as Verbosity
 import Distribution.Version (Version)
 import GHC.Generics (Generic)
-import Options.Applicative
+import Options.Applicative (customExecParser, fullDesc, header, helper, info, prefs, progDesc, showHelpOnEmpty)
 import Security.Advisories (Advisory (..), Keyword (..), ParseAdvisoryError (..), printHsecId)
 import Security.Advisories.Cabal (ElaboratedPackageInfoAdvised, ElaboratedPackageInfoWith (..), matchAdvisoriesForPlan)
 import Security.Advisories.Convert.OSV qualified as OSV
@@ -74,7 +72,8 @@ data AuditException
     ListAdvisoryValidationError {originalFilePath :: FilePath, parseError :: [ParseAdvisoryError]}
   | -- | to rethrow exceptions thrown by cabal during plan elaboration
     CabalException {reason :: String, cabalException :: SomeException}
-  | LibraryNotPresent {libraryName :: String}
+  | -- | a library in the package with name 'packageName' is not present
+    LibraryNotPresent {packageName :: String}
   deriving stock (Show, Generic)
 
 instance Exception AuditException where
@@ -102,7 +101,7 @@ packageLibraryDepends specifiers packageName = do
         | [pkg] <- mapMaybe p specifiers
         , Just lib <- pkg.srcpkgDescription.condLibrary =
             pure lib.condTreeData.libBuildInfo.targetBuildDepends
-        | otherwise = throwIO (LibraryNotPresent packageName)
+        | otherwise = throwIO LibraryNotPresent {packageName}
   buildInfo
 
 -- | the main action to invoke
@@ -116,13 +115,13 @@ auditMain = do
         , header "Welcome to cabal audit"
         ]
   let interpPretty :: forall m a. PrettyC [Text] m a -> m a
-      interpPretty = if noColour auditConfig then runPretty (const id) else runPretty formatWith
+      interpPretty = if auditConfig.noColour then runPretty (const id) else runPretty formatWith
 
   runM $ interpPretty do
     advisories <-
       ( do
           advisories <- buildAdvisories auditConfig nixStyleFlags
-          handleBuiltAdvisories (outputHandle auditConfig) (outputFormat auditConfig) advisories
+          handleBuiltAdvisories auditConfig.outputHandle auditConfig.outputFormat advisories
           pure advisories
         )
         `catch` \(SomeException ex) -> do
@@ -184,7 +183,7 @@ buildAdvisories MkAuditConfig {advisoriesPathOrURL, verbosity, library} flags = 
           rebuildInstallPlan verbosity distDirLayout cabalDirLayout projectConfig localPackages Nothing
           `catch` \ex -> throwIO $ CabalException {reason = "elaborating the install-plan", cabalException = ex}
 
-      pure $ matchAdvisoriesForPlan plan advisories
+      pure $ matchAdvisoriesForPlan (_ plan) advisories
     Just lib -> do
       when (verbosity > Verbosity.normal) do
         owo [([blue], "Resolving advisories for library version bounds")]
@@ -200,7 +199,12 @@ buildAdvisories MkAuditConfig {advisoriesPathOrURL, verbosity, library} flags = 
 -- | provides the built advisories in some consumable form, e.g. as human readable form
 --
 -- FUTUREWORK(mangoiv): provide output as JSON
-handleBuiltAdvisories :: (MonadUnliftIO m, Has (Pretty [Text]) sig m) => Codensity IO Handle -> OutputFormat -> M.Map PackageName ElaboratedPackageInfoAdvised -> m ()
+handleBuiltAdvisories
+  :: (MonadUnliftIO m, Has (Pretty [Text]) sig m)
+  => Codensity IO Handle
+  -> OutputFormat
+  -> M.Map PackageName ElaboratedPackageInfoAdvised
+  -> m ()
 handleBuiltAdvisories mkHandle = \case
   HumanReadable -> humanReadableHandler mkHandle . M.toList
   Osv -> osvHandler mkHandle
@@ -209,10 +213,10 @@ osvHandler :: MonadUnliftIO m => Codensity IO Handle -> M.Map PackageName Elabor
 osvHandler mkHandle mp =
   withRunCodensityInIO mkHandle \hdl ->
     liftIO . BSL.hPutStr hdl . Aeson.encode @Value . object $
-      flip M.foldMapWithKey mp \pn MkElaboratedPackageInfoWith {elaboratedPackageVersion, packageAdvisories} ->
+      flip M.foldMapWithKey mp \pn MkElaboratedPackageInfoWith {elaboratedPackageVersionRange, packageAdvisories} ->
         [ fromString (unPackageName pn)
             .= object
-              [ "version" .= prettyVersion @Text elaboratedPackageVersion
+              [ "version" .= prettyVersion @Text elaboratedPackageVersionRange
               , "advisories" .= map (OSV.convert . fst) (runIdentity packageAdvisories)
               ]
         ]
@@ -234,9 +238,6 @@ prettyAdvisory Advisory {advisoryId, advisoryPublished, advisoryKeywords, adviso
     Nothing -> [([bold, red], "No fix version available")]
     Just fv -> [([bold, green], "Fix available since version "), ([yellow], prettyVersion fv)]
 
-withRunCodensityInIO :: MonadUnliftIO m => Codensity IO a -> (a -> m b) -> m b
-withRunCodensityInIO cod k = withRunInIO \inIO -> runCodensity cod (inIO . k)
-
 -- | this is handler is used when displaying to the user
 humanReadableHandler
   :: (MonadUnliftIO m, Has (Pretty [Text]) sig m)
@@ -249,10 +250,14 @@ humanReadableHandler mkHandle =
     avs -> do
       pwetty hdl [([bold, red], "\n\nFound advisories:\n")]
       for_ avs \(pn, i) -> do
-        let verString = ([yellow], prettyVersion $ elaboratedPackageVersion i)
+        let verString = ([yellow], prettyVersion i.elaboratedPackageVersionRange)
             pkgName = ([yellow], T.pack $ show $ unPackageName pn)
         pwetty hdl [([], "dependency "), pkgName, ([], " at version "), verString, ([], " is vulnerable for:")]
         for_ (runIdentity (packageAdvisories i)) (pwetty hdl . uncurry prettyAdvisory)
 
 projectConfigFromFlags :: NixStyleFlags a -> ProjectConfig
 projectConfigFromFlags flags = commandLineFlagsToProjectConfig defaultGlobalFlags flags mempty
+
+-- | runs 'Codensity' 'IO' in a monad that is an instance of 'MonadUnliftIO'
+withRunCodensityInIO :: MonadUnliftIO m => Codensity IO a -> (a -> m b) -> m b
+withRunCodensityInIO cod k = withRunInIO \inIO -> runCodensity cod (inIO . k)

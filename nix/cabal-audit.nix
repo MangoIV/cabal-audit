@@ -5,6 +5,7 @@
   bytestring,
   Cabal,
   cabal-install,
+  cabal-install-solver,
   chronos,
   colourista,
   containers,
@@ -35,6 +36,7 @@ mkDerivation {
     bytestring
     Cabal
     cabal-install
+    cabal-install-solver
     chronos
     colourista
     containers

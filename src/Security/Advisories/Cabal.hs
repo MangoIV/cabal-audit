@@ -30,6 +30,8 @@ import Security.Advisories
   , AffectedVersionRange (..)
   )
 
+-- | folds @f a@ into a 'Map' by first applying the function and inserting the
+-- resulting pair into the 'Map'
 toMapOn :: (Ord b, Foldable f) => (a -> (b, c)) -> f a -> Map b c
 toMapOn f = foldl' (\mp a -> uncurry Map.insert (f a) mp) Map.empty
 
@@ -94,7 +96,7 @@ data ElaboratedPackageInfo = MkElaboratedPackageInfo
 -- | 'Map' to lookup the package name in the install plan that returns information
 --   about the package
 installPlanToLookupTable :: ElaboratedInstallPlan -> Map PackageName VersionRange
-installPlanToLookupTable = Map.fromList . fmap planPkgToPackageInfo . Plan.toList
+installPlanToLookupTable = Map.fromList . map planPkgToPackageInfo . Plan.toList
  where
   planPkgToPackageInfo pkg =
     let (PackageIdentifier {pkgName, pkgVersion}) =

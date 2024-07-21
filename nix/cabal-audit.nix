@@ -10,6 +10,7 @@
   colourista,
   containers,
   fused-effects,
+  hsec-core,
   hsec-tools,
   hspec,
   kan-extensions,
@@ -54,7 +55,7 @@ mkDerivation {
     vector
   ];
   executableHaskellDepends = [base];
-  testHaskellDepends = [base hspec];
+  testHaskellDepends = [base Cabal hsec-core hspec];
   description = "Checking a cabal project for security advisories";
   license = lib.licenses.bsd3;
   mainProgram = "cabal-audit";

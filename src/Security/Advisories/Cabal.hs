@@ -6,6 +6,8 @@ module Security.Advisories.Cabal
   , ElaboratedPackageInfoWith (..)
   , ElaboratedPackageInfoAdvised
   , ElaboratedPackageInfo
+  , installPlanToLookupTable
+  , toMapOn
   )
 where
 
@@ -16,13 +18,13 @@ import Data.Map (Map, (!?))
 import Data.Map.Strict qualified as Map
 import Data.Maybe (mapMaybe)
 import Data.Monoid (Alt (Alt, getAlt))
-import Data.Proxy (Proxy (Proxy))
+import Data.Proxy (Proxy)
 import Data.Text qualified as T
 import Distribution.Client.InstallPlan (foldPlanPackage)
 import Distribution.Client.InstallPlan qualified as Plan
 import Distribution.Client.ProjectPlanning (ElaboratedInstallPlan, elabPkgSourceId)
 import Distribution.InstalledPackageInfo (sourcePackageId)
-import Distribution.Package (Dependency, PackageIdentifier (PackageIdentifier, pkgName, pkgVersion), PackageName, depPkgName, mkPackageName)
+import Distribution.Package (PackageIdentifier (PackageIdentifier, pkgName, pkgVersion), PackageName, mkPackageName)
 import Distribution.Version (Bound (..), LowerBound (LowerBound), UpperBound (UpperBound), Version, VersionInterval (..), VersionRange, asVersionIntervals, thisVersion)
 import GHC.Generics (Generic)
 import Security.Advisories
@@ -31,8 +33,8 @@ import Security.Advisories
   , AffectedVersionRange (..)
   )
 
-toMapOn :: (Ord b, Foldable f) => (a -> b) -> f a -> Map b a
-toMapOn f = foldl' (\mp a -> Map.insert (f a) a mp) Map.empty
+toMapOn :: (Ord b, Foldable f) => (a -> (b, c)) -> f a -> Map b c
+toMapOn f = foldl' (\mp a -> uncurry Map.insert (f a) mp) Map.empty
 
 -- | for a given 'ElaboratedInstallPlan' and a list of advisories, construct a map of advisories
 --   and packages within the install plan that are affected by them
@@ -103,13 +105,13 @@ deriving stock instance Show (f [(Advisory, Maybe Version)]) => (Show (Elaborate
 
 -- | 'Map' to lookup the package name in the install plan that returns information
 --   about the package
-installPlanToLookupTable :: ElaboratedInstallPlan -> Map PackageName ElaboratedPackageInfo
+installPlanToLookupTable :: ElaboratedInstallPlan -> Map PackageName VersionRange
 installPlanToLookupTable = Map.fromList . fmap planPkgToPackageInfo . Plan.toList
  where
-  planPkgToPackageInfo pkg = do
+  planPkgToPackageInfo pkg =
     let (PackageIdentifier {pkgName, pkgVersion}) =
           foldPlanPackage
             sourcePackageId
             elabPkgSourceId
             pkg
-    (pkgName, MkElaboratedPackageInfoWith {elaboratedPackageVersionRange = thisVersion pkgVersion, packageAdvisories = Proxy})
+     in (pkgName, thisVersion pkgVersion)

@@ -43,7 +43,7 @@ import Distribution.Solver.Modular.Package (PackageIdentifier (pkgName), Package
 import Distribution.Solver.Types.SourcePackage (srcpkgDescription, srcpkgPackageId)
 import Distribution.Types.BuildInfo (targetBuildDepends)
 import Distribution.Types.CondTree (condTreeData)
-import Distribution.Types.Dependency (Dependency)
+import Distribution.Types.Dependency (Dependency (Dependency))
 import Distribution.Types.GenericPackageDescription (condLibrary)
 import Distribution.Types.Library (libBuildInfo)
 import Distribution.Verbosity qualified as Verbosity
@@ -51,10 +51,10 @@ import Distribution.Version (Version)
 import GHC.Generics (Generic)
 import Options.Applicative (customExecParser, fullDesc, header, helper, info, prefs, progDesc, showHelpOnEmpty)
 import Security.Advisories (Advisory (..), Keyword (..), ParseAdvisoryError (..), printHsecId)
-import Security.Advisories.Cabal (ElaboratedPackageInfoAdvised, ElaboratedPackageInfoWith (..), matchAdvisoriesForPlan)
+import Security.Advisories.Cabal (ElaboratedPackageInfoAdvised, ElaboratedPackageInfoWith (..), installPlanToLookupTable, matchAdvisoriesForPlan, toMapOn)
 import Security.Advisories.Convert.OSV qualified as OSV
 import Security.Advisories.Filesystem (listAdvisories)
-import Security.Advisories.SBom.Types (prettyVersion)
+import Security.Advisories.SBom.Types (prettyVersion, prettyVersionRange)
 import System.Exit (exitFailure)
 import System.IO (Handle)
 import System.Process (callProcess)
@@ -183,13 +183,13 @@ buildAdvisories MkAuditConfig {advisoriesPathOrURL, verbosity, library} flags = 
           rebuildInstallPlan verbosity distDirLayout cabalDirLayout projectConfig localPackages Nothing
           `catch` \ex -> throwIO $ CabalException {reason = "elaborating the install-plan", cabalException = ex}
 
-      pure $ matchAdvisoriesForPlan (_ plan) advisories
+      pure $ matchAdvisoriesForPlan (installPlanToLookupTable plan) advisories
     Just lib -> do
       when (verbosity > Verbosity.normal) do
         owo [([blue], "Resolving advisories for library version bounds")]
       deps <- packageLibraryDepends localPackages lib
       liftIO $ print deps
-      undefined
+      pure $ matchAdvisoriesForPlan (toMapOn (\(Dependency pn range _) -> (pn, range)) deps) advisories
 
   when (verbosity > Verbosity.normal) do
     owo [([blue], "...done")]
@@ -216,7 +216,7 @@ osvHandler mkHandle mp =
       flip M.foldMapWithKey mp \pn MkElaboratedPackageInfoWith {elaboratedPackageVersionRange, packageAdvisories} ->
         [ fromString (unPackageName pn)
             .= object
-              [ "version" .= prettyVersion @Text elaboratedPackageVersionRange
+              [ "version" .= prettyVersionRange @Text elaboratedPackageVersionRange
               , "advisories" .= map (OSV.convert . fst) (runIdentity packageAdvisories)
               ]
         ]
@@ -250,10 +250,10 @@ humanReadableHandler mkHandle =
     avs -> do
       pwetty hdl [([bold, red], "\n\nFound advisories:\n")]
       for_ avs \(pn, i) -> do
-        let verString = ([yellow], prettyVersion i.elaboratedPackageVersionRange)
+        let verString = ([yellow], prettyVersionRange i.elaboratedPackageVersionRange)
             pkgName = ([yellow], T.pack $ show $ unPackageName pn)
         pwetty hdl [([], "dependency "), pkgName, ([], " at version "), verString, ([], " is vulnerable for:")]
-        for_ (runIdentity (packageAdvisories i)) (pwetty hdl . uncurry prettyAdvisory)
+        for_ (runIdentity i.packageAdvisories) (pwetty hdl . uncurry prettyAdvisory)
 
 projectConfigFromFlags :: NixStyleFlags a -> ProjectConfig
 projectConfigFromFlags flags = commandLineFlagsToProjectConfig defaultGlobalFlags flags mempty

@@ -85,20 +85,16 @@
           regen-nix = pkgs.writeShellApplication {
             name = "regen-cabal-audit-nix";
             runtimeInputs = [pkgs.cabal2nix pkgs.alejandra];
-            text = ''
+            text = let
+              v = "d09058a544bf45cc0814ed9b300cd940bc263617";
+              cmd = pkg: ''
+                cabal2nix https://github.com/haskell/security-advisories.git \
+                  --revision ${v} \
+                  --subpath code/${pkg}/ > ./${pkg}.nix
+              '';
+            in ''
               pushd "$PRJ_ROOT"/nix
-              cabal2nix cabal://toml-parser > ./toml-parser.nix
-              cabal2nix cabal://cvss > ./cvss.nix
-              cabal2nix cabal://osv > ./osv.nix
-              # unreleased changes
-              # cabal2nix cabal://hsec-core > ./hsec-core.nix
-              # cabal2nix cabal://hsec-tools > ./hsec-tools.nix
-              cabal2nix https://github.com/haskell/security-advisories.git \
-                --revision 4b773dd6d3ab31313fa7f2470053980af175bf27 \
-                --subpath code/hsec-core/ > ./hsec-core.nix
-              cabal2nix https://github.com/haskell/security-advisories.git \
-                --revision 4b773dd6d3ab31313fa7f2470053980af175bf27 \
-                --subpath code/hsec-tools/ > ./hsec-tools.nix
+              ${lib.concatStrings (map cmd ["osv" "cvss" "hsec-core" "hsec-tools"])}
               cabal2nix ../. > ./cabal-audit.nix
               alejandra ./.
               popd

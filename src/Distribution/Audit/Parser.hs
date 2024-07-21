@@ -98,7 +98,9 @@ auditCommandParser =
               [ long "library"
               , short 'l'
               , metavar "LIBRARY"
-              , help "instead of resolving, find advisories for a library in the given cabal project"
+              , help
+                  "WARNING: this currently only returns the vulnerable direct dependencies of a library.\
+                  \n instead of resolving, find advisories for a library in the given cabal project"
               ]
     -- FUTUREWORK(mangoiv): this will accept cabal flags as an additional argument with something like
     -- --cabal-flags "--some-cabal-flag" and print a helper that just forwards the cabal help text

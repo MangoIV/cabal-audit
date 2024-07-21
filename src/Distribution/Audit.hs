@@ -186,9 +186,8 @@ buildAdvisories MkAuditConfig {advisoriesPathOrURL, verbosity, library} flags = 
     Just lib -> do
       when (verbosity > Verbosity.normal) do
         owo [([blue], "Resolving advisories for library version bounds")]
-      deps <- packageLibraryDepends localPackages lib
-      liftIO $ print deps
-      pure $ matchAdvisoriesForPlan (toMapOn (\(Dependency pn range _) -> (pn, range)) deps) advisories
+      deps <- toMapOn (\(Dependency pn range _) -> (pn, range)) <$> packageLibraryDepends localPackages lib
+      pure $ matchAdvisoriesForPlan deps advisories
 
   when (verbosity > Verbosity.normal) do
     owo [([blue], "...done")]

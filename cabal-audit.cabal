@@ -114,7 +114,9 @@ test-suite spec
   other-modules:    Spec
   build-depends:
     , base         <5
+    , Cabal
     , cabal-audit
+    , hsec-core
     , hspec
 
   default-language: Haskell2010

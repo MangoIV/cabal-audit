@@ -20,7 +20,6 @@ import Data.Aeson qualified as Aeson
 import Data.ByteString.Lazy qualified as BSL
 import Data.Coerce (coerce)
 import Data.Foldable (for_)
-import Data.Functor.Identity (Identity (runIdentity))
 import Data.Map qualified as M
 import Data.Maybe (mapMaybe)
 import Data.String (IsString (fromString))
@@ -51,7 +50,7 @@ import Distribution.Version (Version)
 import GHC.Generics (Generic)
 import Options.Applicative (customExecParser, fullDesc, header, helper, info, prefs, progDesc, showHelpOnEmpty)
 import Security.Advisories (Advisory (..), Keyword (..), ParseAdvisoryError (..), printHsecId)
-import Security.Advisories.Cabal (ElaboratedPackageInfoAdvised, ElaboratedPackageInfoWith (..), installPlanToLookupTable, matchAdvisoriesForPlan, toMapOn)
+import Security.Advisories.Cabal (ElaboratedPackageInfo (..), installPlanToLookupTable, matchAdvisoriesForPlan, toMapOn)
 import Security.Advisories.Convert.OSV qualified as OSV
 import Security.Advisories.Filesystem (listAdvisories)
 import Security.Advisories.SBom.Types (prettyVersion, prettyVersionRange)
@@ -139,7 +138,7 @@ buildAdvisories
   :: (MonadUnliftIO m, Has (Pretty [Text]) sig m)
   => AuditConfig
   -> NixStyleFlags ()
-  -> m (M.Map PackageName ElaboratedPackageInfoAdvised)
+  -> m (M.Map PackageName ElaboratedPackageInfo)
 buildAdvisories MkAuditConfig {advisoriesPathOrURL, verbosity, library} flags = do
   let cliConfig = projectConfigFromFlags flags
 
@@ -203,21 +202,21 @@ handleBuiltAdvisories
   :: (MonadUnliftIO m, Has (Pretty [Text]) sig m)
   => Codensity IO Handle
   -> OutputFormat
-  -> M.Map PackageName ElaboratedPackageInfoAdvised
+  -> M.Map PackageName ElaboratedPackageInfo
   -> m ()
 handleBuiltAdvisories mkHandle = \case
   HumanReadable -> humanReadableHandler mkHandle . M.toList
   Osv -> osvHandler mkHandle
 
-osvHandler :: MonadUnliftIO m => Codensity IO Handle -> M.Map PackageName ElaboratedPackageInfoAdvised -> m ()
+osvHandler :: MonadUnliftIO m => Codensity IO Handle -> M.Map PackageName ElaboratedPackageInfo -> m ()
 osvHandler mkHandle mp =
   withRunCodensityInIO mkHandle \hdl ->
     liftIO . BSL.hPutStr hdl . Aeson.encode @Value . object $
-      flip M.foldMapWithKey mp \pn MkElaboratedPackageInfoWith {elaboratedPackageVersionRange, packageAdvisories} ->
+      flip M.foldMapWithKey mp \pn MkElaboratedPackageInfo {elaboratedPackageVersionRange, packageAdvisories} ->
         [ fromString (unPackageName pn)
             .= object
               [ "version" .= prettyVersionRange @Text elaboratedPackageVersionRange
-              , "advisories" .= map (OSV.convert . fst) (runIdentity packageAdvisories)
+              , "advisories" .= map (OSV.convert . fst) packageAdvisories
               ]
         ]
 
@@ -242,7 +241,7 @@ prettyAdvisory Advisory {advisoryId, advisoryPublished, advisoryKeywords, adviso
 humanReadableHandler
   :: (MonadUnliftIO m, Has (Pretty [Text]) sig m)
   => Codensity IO Handle
-  -> [(PackageName, ElaboratedPackageInfoAdvised)]
+  -> [(PackageName, ElaboratedPackageInfo)]
   -> m ()
 humanReadableHandler mkHandle =
   withRunCodensityInIO mkHandle . flip \hdl -> \case
@@ -253,7 +252,7 @@ humanReadableHandler mkHandle =
         let verString = ([yellow], prettyVersionRange i.elaboratedPackageVersionRange)
             pkgName = ([yellow], T.pack $ show $ unPackageName pn)
         pwetty hdl [([], "dependency "), pkgName, ([], " at version "), verString, ([], " is vulnerable for:")]
-        for_ (runIdentity i.packageAdvisories) (pwetty hdl . uncurry prettyAdvisory)
+        for_ i.packageAdvisories (pwetty hdl . uncurry prettyAdvisory)
 
 projectConfigFromFlags :: NixStyleFlags a -> ProjectConfig
 projectConfigFromFlags flags = commandLineFlagsToProjectConfig defaultGlobalFlags flags mempty

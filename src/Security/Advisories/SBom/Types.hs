@@ -1,6 +1,6 @@
 {-# LANGUAGE StrictData #-}
 
-module Security.Advisories.SBom.Types (SBomMeta (..), ComponentType (..), prettyComponentType, prettyVersion, prettyLicense, mkPurl, mkBomRef) where
+module Security.Advisories.SBom.Types (SBomMeta (..), ComponentType (..), prettyComponentType, prettyVersion, prettyVersionRange, prettyLicense, mkPurl, mkBomRef) where
 
 import Data.List qualified as List
 import Data.Maybe (fromMaybe)
@@ -11,10 +11,11 @@ import Data.Text.Lazy qualified as TL
 import Data.Text.Lazy.Builder qualified as TLB
 import Data.Vector (Vector)
 import Distribution.Pretty (Pretty (pretty))
+import Distribution.Pretty qualified as Distribution
 import Distribution.SPDX qualified as SPDX
-import Distribution.Version (Version, versionNumbers)
+import Distribution.Version (Version, VersionRange, versionNumbers)
 import GHC.Generics (Generic)
-import Text.PrettyPrint.HughesPJ (Mode (OneLineMode), TextDetails (..), fullRender)
+import Text.PrettyPrint.HughesPJ (Mode (OneLineMode), TextDetails (..), fullRender, render)
 
 -- | a component type; cabal applications, tests and benchmarks are going to be applications, cabal libraries
 --   are going to be libraries
@@ -80,6 +81,9 @@ mkPurl repo name version = mconcat ["pkg:", repo, "/", name, maybe "" (("@" <>) 
 prettyVersion :: IsString s => Version -> s
 prettyVersion = fromString . List.intercalate "." . map show . versionNumbers
 {-# INLINE prettyVersion #-}
+
+prettyVersionRange :: IsString s => VersionRange -> s
+prettyVersionRange = fromString . render . Distribution.pretty
 
 -- | pretty print an SPDX license expression
 --

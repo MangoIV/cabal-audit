@@ -3,105 +3,107 @@
 
 module Security.Advisories.Cabal
   ( matchAdvisoriesForPlan
-  , ElaboratedPackageInfo (..)
-  , installPlanToLookupTable
-  , toMapOn
-  , versionAffected
+  , ElaboratedPackageInfoWith (..)
+  , ElaboratedPackageInfoAdvised
+  , ElaboratedPackageInfo
   )
 where
 
-import Data.Foldable (Foldable (foldl'))
+import Data.Functor.Identity (Identity (Identity))
 import Data.Kind (Type)
 import Data.Map (Map, (!?))
 import Data.Map.Strict qualified as Map
 import Data.Maybe (mapMaybe)
-import Data.Monoid (Alt (Alt, getAlt))
+import Data.Monoid (Alt (Alt, getAlt), Any (Any, getAny))
+import Data.Proxy (Proxy (Proxy))
 import Data.Text qualified as T
 import Distribution.Client.InstallPlan (foldPlanPackage)
 import Distribution.Client.InstallPlan qualified as Plan
 import Distribution.Client.ProjectPlanning (ElaboratedInstallPlan, elabPkgSourceId)
 import Distribution.InstalledPackageInfo (sourcePackageId)
 import Distribution.Package (PackageIdentifier (PackageIdentifier, pkgName, pkgVersion), PackageName, mkPackageName)
-import Distribution.Version (Bound (..), LowerBound (LowerBound), UpperBound (UpperBound), Version, VersionInterval (..), VersionRange, asVersionIntervals, thisVersion)
+import Distribution.Version (Version)
 import GHC.Generics (Generic)
 import Security.Advisories
   ( Advisory (advisoryAffected)
   , Affected (Affected, affectedPackage, affectedVersions)
-  , AffectedVersionRange (..)
+  , AffectedVersionRange (affectedVersionRangeFixed, affectedVersionRangeIntroduced)
   )
-
--- | folds @f a@ into a 'Map' by first applying the function and inserting the
--- resulting pair into the 'Map'
-toMapOn :: (Ord b, Foldable f) => (a -> (b, c)) -> f a -> Map b c
-toMapOn f = foldl' (\mp a -> uncurry Map.insert (f a) mp) Map.empty
-
--- | for a legal 'VersionRange', is the range affected by and of the
--- 'AffectedVersionRange's
-versionAffected :: VersionRange -> [AffectedVersionRange] -> Bool
-versionAffected (asVersionIntervals -> intervals) ranges = or do
-  AffectedVersionRange introduced mfixed <- ranges
-
-  VersionInterval (LowerBound lv lbound) (UpperBound uv ubound) <- intervals
-  let lc = case lbound of ExclusiveBound -> (<); InclusiveBound -> (<=)
-      uc = case ubound of ExclusiveBound -> (>); InclusiveBound -> (>=)
-
-  pure $
-    lv `lc` introduced && maybe True (uv `uc`) mfixed
 
 -- | for a given 'ElaboratedInstallPlan' and a list of advisories, construct a map of advisories
 --   and packages within the install plan that are affected by them
 matchAdvisoriesForPlan
-  :: Map PackageName VersionRange
-  -- ^ package names paired with their legal version range
+  :: ElaboratedInstallPlan
+  -- ^ the plan as created by cabal
   -> [Advisory]
   -- ^ the advisories as discovered in some advisory dir
-  -> Map PackageName ElaboratedPackageInfo
+  -> Map PackageName ElaboratedPackageInfoAdvised
 matchAdvisoriesForPlan plan = foldr advise Map.empty
  where
-  advise :: Advisory -> Map PackageName ElaboratedPackageInfo -> Map PackageName ElaboratedPackageInfo
+  advise :: Advisory -> Map PackageName ElaboratedPackageInfoAdvised -> Map PackageName ElaboratedPackageInfoAdvised
   advise adv = do
-    let fixVersion :: [AffectedVersionRange] -> Maybe Version
+    let versionAffected :: Version -> [AffectedVersionRange] -> Bool
+        versionAffected v =
+          getAny . foldMap \av -> Any do
+            v >= affectedVersionRangeIntroduced av && maybe True (v <) (affectedVersionRangeFixed av)
+
+        fixVersion :: [AffectedVersionRange] -> Maybe Version
         fixVersion = getAlt . foldMap (Alt . affectedVersionRangeFixed)
 
-        advPkgs :: [(PackageName, ElaboratedPackageInfo)]
-        advPkgs = flip mapMaybe adv.advisoryAffected \Affected {affectedPackage, affectedVersions} -> do
+        advPkgs :: [(PackageName, ElaboratedPackageInfoAdvised)]
+        advPkgs = flip mapMaybe (advisoryAffected adv) \Affected {affectedPackage, affectedVersions} -> do
           let pkgn = mkPackageName (T.unpack affectedPackage)
-          range <- plan !? pkgn
-          if versionAffected range affectedVersions
-            then Just (pkgn, MkElaboratedPackageInfo {elaboratedPackageVersionRange = range, packageAdvisories = [(adv, fixVersion affectedVersions)]})
+          MkElaboratedPackageInfoWith {elaboratedPackageVersion = elabv} <- installPlanToLookupTable plan !? pkgn
+          if versionAffected elabv affectedVersions
+            then Just (pkgn, MkElaboratedPackageInfoWith {elaboratedPackageVersion = elabv, packageAdvisories = Identity [(adv, fixVersion affectedVersions)]})
             else Nothing
 
-    flip (foldr . uncurry $ Map.insertWith combinedElaboratedPackageInfos) advPkgs
+    flip
+      do foldr . uncurry $ Map.insertWith combinedElaboratedPackageInfos
+      advPkgs
 
   combinedElaboratedPackageInfos
-    MkElaboratedPackageInfo {elaboratedPackageVersionRange = ver1, packageAdvisories = advs1}
-    MkElaboratedPackageInfo {packageAdvisories = advs2} =
-      MkElaboratedPackageInfo {elaboratedPackageVersionRange = ver1, packageAdvisories = advs1 <> advs2}
+    MkElaboratedPackageInfoWith {elaboratedPackageVersion = ver1, packageAdvisories = advs1}
+    MkElaboratedPackageInfoWith {packageAdvisories = advs2} =
+      MkElaboratedPackageInfoWith {elaboratedPackageVersion = ver1, packageAdvisories = advs1 <> advs2}
+
+type ElaboratedPackageInfoAdvised = ElaboratedPackageInfoWith Identity
+
+type ElaboratedPackageInfo = ElaboratedPackageInfoWith Proxy
 
 -- | information about the elaborated package that
 --   is to be looked up that we want to add  to the
 --   information displayed in the advisory
-type ElaboratedPackageInfo :: Type
-data ElaboratedPackageInfo = MkElaboratedPackageInfo
-  { elaboratedPackageVersionRange :: VersionRange
-  -- ^ the versions of the package that are allowed
-  , packageAdvisories :: [(Advisory, Maybe Version)]
-  -- ^ the advisories for some package
+type ElaboratedPackageInfoWith :: (Type -> Type) -> Type
+data ElaboratedPackageInfoWith f = MkElaboratedPackageInfoWith
+  { elaboratedPackageVersion :: Version
+  -- ^ the version of the package that is installed
+  , packageAdvisories :: f [(Advisory, Maybe Version)]
+  -- ^ the advisories for some package; this is just the () type
+  -- (Proxy) as long as the advisories haven't been looked up and a
+  -- [Advisory] after looking up the advisories in the DB we also
+  -- want to attach the newest fixed version of a given Advisory
   }
-  deriving stock (Show, Generic)
+  deriving stock (Generic)
+
+deriving stock instance Eq (f [(Advisory, Maybe Version)]) => (Eq (ElaboratedPackageInfoWith f))
+
+deriving stock instance Ord (f [(Advisory, Maybe Version)]) => (Ord (ElaboratedPackageInfoWith f))
+
+deriving stock instance Show (f [(Advisory, Maybe Version)]) => (Show (ElaboratedPackageInfoWith f))
 
 --   FUTUREWORK(mangoiv): this could probably be done more intelligently by also
 --   looking up via the version range but I don't know exacty how
 
 -- | 'Map' to lookup the package name in the install plan that returns information
 --   about the package
-installPlanToLookupTable :: ElaboratedInstallPlan -> Map PackageName VersionRange
-installPlanToLookupTable = Map.fromList . map planPkgToPackageInfo . Plan.toList
+installPlanToLookupTable :: ElaboratedInstallPlan -> Map PackageName ElaboratedPackageInfo
+installPlanToLookupTable = Map.fromList . fmap planPkgToPackageInfo . Plan.toList
  where
-  planPkgToPackageInfo pkg =
+  planPkgToPackageInfo pkg = do
     let (PackageIdentifier {pkgName, pkgVersion}) =
           foldPlanPackage
             sourcePackageId
             elabPkgSourceId
             pkg
-     in (pkgName, thisVersion pkgVersion)
+    (pkgName, MkElaboratedPackageInfoWith {elaboratedPackageVersion = pkgVersion, packageAdvisories = Proxy})

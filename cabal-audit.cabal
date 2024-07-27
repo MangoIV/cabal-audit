@@ -26,8 +26,9 @@ tested-with:        GHC ==9.4.8 || ==9.6.4 || ==9.8.2
 
 common common-all
   ghc-options:
-    -Wall -Wcompat -Wunused-packages -fmax-relevant-binds=0
-    -fno-show-valid-hole-fits
+    -Wall -Wcompat -Widentities -Wincomplete-record-updates
+    -Wincomplete-uni-patterns -Wredundant-constraints
+    -fmax-relevant-binds=0 -fno-show-valid-hole-fits
 
   if impl(ghc >=9.6.1)
     ghc-options: -fno-show-error-context
@@ -39,6 +40,9 @@ common common-all
     DerivingStrategies
     DerivingVia
     DuplicateRecordFields
+    EmptyCase
+    FlexibleContexts
+    FlexibleInstances
     GADTs
     ImportQualifiedPost
     LambdaCase
@@ -64,7 +68,6 @@ library
   exposed-modules:
     Control.Effect.Pretty
     Distribution.Audit
-    Distribution.Audit.Parser
     Security.Advisories.Cabal
     Security.Advisories.SBom.CycloneDX
     Security.Advisories.SBom.Types
@@ -75,16 +78,19 @@ library
     , bytestring
     , Cabal
     , cabal-install
-    , cabal-install-solver
     , chronos
     , colourista
     , containers
+    , filepath
     , fused-effects
+    , hsec-core
     , hsec-tools
+    , http-client
     , kan-extensions
     , optparse-applicative
     , pretty
     , process
+    , temporary
     , text
     , transformers
     , unliftio
@@ -93,7 +99,7 @@ library
     , vector
 
   hs-source-dirs:   src
-  default-language: GHC2021
+  default-language: Haskell2010
 
 executable cabal-audit
   import:           common-all
@@ -114,9 +120,7 @@ test-suite spec
   other-modules:    Spec
   build-depends:
     , base         <5
-    , Cabal
     , cabal-audit
-    , hsec-core
     , hspec
 
   default-language: Haskell2010

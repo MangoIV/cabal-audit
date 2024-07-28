@@ -5,19 +5,21 @@
   bytestring,
   Cabal,
   cabal-install,
-  cabal-install-solver,
   chronos,
   colourista,
   containers,
+  filepath,
   fused-effects,
   hsec-core,
   hsec-tools,
   hspec,
+  http-client,
   kan-extensions,
   lib,
   optparse-applicative,
   pretty,
   process,
+  temporary,
   text,
   transformers,
   unliftio,
@@ -37,16 +39,19 @@ mkDerivation {
     bytestring
     Cabal
     cabal-install
-    cabal-install-solver
     chronos
     colourista
     containers
+    filepath
     fused-effects
+    hsec-core
     hsec-tools
+    http-client
     kan-extensions
     optparse-applicative
     pretty
     process
+    temporary
     text
     transformers
     unliftio
@@ -55,7 +60,7 @@ mkDerivation {
     vector
   ];
   executableHaskellDepends = [base];
-  testHaskellDepends = [base Cabal hsec-core hspec];
+  testHaskellDepends = [base hspec];
   description = "Checking a cabal project for security advisories";
   license = lib.licenses.bsd3;
   mainProgram = "cabal-audit";

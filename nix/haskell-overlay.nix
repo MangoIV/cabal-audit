@@ -8,6 +8,8 @@
   Cabal-syntax = hprev.Cabal-syntax_3_10_3_0;
   Cabal = hprev.Cabal_3_10_3_0;
 
+  extensions = hprev.extensions.override {inherit (hfinal) Cabal;};
+
   toml-parser = hprev.toml-parser_2_0_1_0;
   sel = hlib.doJailbreak (hlib.markUnbroken hprev.sel);
   typst = hprev.typst_0_5_0_3;

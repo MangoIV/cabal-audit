@@ -90,6 +90,7 @@ library
     , optparse-applicative
     , pretty
     , process
+    , sarif
     , temporary
     , text
     , transformers

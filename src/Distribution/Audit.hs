@@ -1,3 +1,5 @@
+{-# LANGUAGE CPP #-}
+
 -- | provides the @cabal-audit@ plugin which works as follows:
 --
 -- 1. parse command line arguments to pass on to cabal to build
@@ -19,13 +21,17 @@ import Data.Aeson (KeyValue ((.=)), Value, object)
 import Data.Aeson qualified as Aeson
 import Data.ByteString.Lazy qualified as BSL
 import Data.Coerce (coerce)
-import Data.Foldable (for_)
+import Data.Foldable (fold, for_)
+import Data.Functor ((<&>))
 import Data.Functor.Identity (Identity (runIdentity))
 import Data.Map qualified as M
+import Data.SARIF as Sarif
 import Data.String (IsString (fromString))
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Vector (Vector)
+import Data.Vector qualified as V
+import Distribution.Client.DistDirLayout (DistDirLayout (distProjectRootDirectory))
 import Distribution.Client.NixStyleOptions (NixStyleFlags, defaultNixStyleFlags)
 import Distribution.Client.ProjectConfig (ProjectConfig)
 import Distribution.Client.ProjectOrchestration
@@ -86,6 +92,8 @@ data OutputFormat
     HumanReadable
   | -- | write as Osv format to the specified file
     Osv
+  | -- | write as Sarif format to the specified file (for GitHub Code scanning)
+    Sarif
 
 -- | configuration that is specific to the cabal audit command
 data AuditConfig = MkAuditConfig
@@ -119,8 +127,8 @@ auditMain = do
   runM $ interpPretty do
     advisories <-
       ( do
-          advisories <- buildAdvisories auditConfig nixStyleFlags
-          handleBuiltAdvisories (outputHandle auditConfig) (outputFormat auditConfig) advisories
+          (advisories, projectBaseContext) <- buildAdvisories auditConfig nixStyleFlags
+          handleBuiltAdvisories advisories projectBaseContext (outputHandle auditConfig) (outputFormat auditConfig)
           pure advisories
         )
         `catch` \(SomeException ex) -> do
@@ -138,11 +146,11 @@ buildAdvisories
   :: (MonadUnliftIO m, Has (Pretty [Text]) sig m)
   => AuditConfig
   -> NixStyleFlags ()
-  -> m (M.Map PackageName ElaboratedPackageInfoAdvised)
+  -> m (M.Map PackageName ElaboratedPackageInfoAdvised, ProjectBaseContext)
 buildAdvisories MkAuditConfig {advisoriesPathOrURL, verbosity} flags = do
   let cliConfig = projectConfigFromFlags flags
 
-  ProjectBaseContext {distDirLayout, cabalDirLayout, projectConfig, localPackages} <-
+  projectBaseContext@ProjectBaseContext {distDirLayout, cabalDirLayout, projectConfig, localPackages} <-
     liftIO do
       establishProjectBaseContext verbosity cliConfig OtherCommand
         `catch` \ex ->
@@ -172,15 +180,22 @@ buildAdvisories MkAuditConfig {advisoriesPathOrURL, verbosity} flags = do
         liftIO $ callProcess "git" ["clone", "--depth", "1", url, tmp]
         k tmp
 
-  pure $ matchAdvisoriesForPlan plan advisories
+  pure (matchAdvisoriesForPlan plan advisories, projectBaseContext)
 
 -- | provides the built advisories in some consumable form, e.g. as human readable form
 --
 -- FUTUREWORK(mangoiv): provide output as JSON
-handleBuiltAdvisories :: (MonadUnliftIO m, Has (Pretty [Text]) sig m) => Codensity IO Handle -> OutputFormat -> M.Map PackageName ElaboratedPackageInfoAdvised -> m ()
-handleBuiltAdvisories mkHandle = \case
-  HumanReadable -> humanReadableHandler mkHandle . M.toList
-  Osv -> osvHandler mkHandle
+handleBuiltAdvisories
+  :: (MonadUnliftIO m, Has (Pretty [Text]) sig m)
+  => M.Map PackageName ElaboratedPackageInfoAdvised
+  -> ProjectBaseContext
+  -> Codensity IO Handle
+  -> OutputFormat
+  -> m ()
+handleBuiltAdvisories mp pbc mkHandle = \case
+  HumanReadable -> humanReadableHandler mkHandle $ M.toList mp
+  Osv -> osvHandler mkHandle mp
+  Sarif -> sarifHandler mkHandle pbc $ M.toList mp
 
 osvHandler :: MonadUnliftIO m => Codensity IO Handle -> M.Map PackageName ElaboratedPackageInfoAdvised -> m ()
 osvHandler mkHandle mp =
@@ -194,22 +209,162 @@ osvHandler mkHandle mp =
               ]
         ]
 
-prettyAdvisory :: Advisory -> Maybe Version -> Vector ([Text], Text)
-prettyAdvisory Advisory {advisoryId, advisoryPublished, advisoryKeywords, advisorySummary} mfv =
-  let hsecId = T.pack (printHsecId advisoryId)
-      indentLine line = [([], "  ")] <> line <> [([], "\n")]
-   in foldMap @[]
-        indentLine
-        [ [([bold, blue], hsecId <> " \"" <> advisorySummary <> "\"")]
-        , [([], "published: ") <> ([bold], T.pack $ show advisoryPublished)]
-        , [([], "https://haskell.github.io/security-advisories/advisory/" <> hsecId)]
-        , fixAvailable
-        , [([blue], T.intercalate ", " (coerce advisoryKeywords))]
-        ]
+sarifHandler
+  :: MonadUnliftIO m
+  => Codensity IO Handle
+  -> ProjectBaseContext
+  -> [(PackageName, ElaboratedPackageInfoAdvised)]
+  -> m ()
+sarifHandler mkHandle projectBaseContext packageAdvisories = do
+  let projectRoot = distProjectRootDirectory $ distDirLayout projectBaseContext -- TODO(blackheaven): resolve repository root (in GitHub Action, we get the cloned directory, instead of the directory from repository's root)
+  let advisories =
+        M.elems $
+          M.fromListWith (\(advisory, pkgsInfo) (_, pkgsInfo') -> (advisory, pkgsInfo <> pkgsInfo')) $
+            packageAdvisories >>= \(pkgName, pkgInfo) ->
+              runIdentity pkgInfo.packageAdvisories <&> \(advisory, fixedAt) ->
+                (advisory.advisoryId, (advisory, [(T.pack $ unPackageName pkgName, fixedAt)]))
+      run =
+        MkRun
+          { runTool =
+              let tool name version =
+                    defaultToolComponent
+                      { toolComponentName = Just name
+                      , toolComponentVersion = Just version
+                      }
+               in MkTool
+                    { toolExtensions =
+                        [ tool "hsec-tools" VERSION_hsec_tools
+                        , tool "ghc" $ T.pack __GLASGOW_HASKELL_FULL_VERSION__
+                        ]
+                    , toolDriver = tool "cabal-audit" VERSION_cabal_audit
+                    }
+          , runResults =
+              advisories <&> \(advisory, concernedInfo) ->
+                MkResult
+                  { resultRuleId = T.pack $ printHsecId advisory.advisoryId
+                  , resultMessage =
+                      MkMultiformatMessageString
+                        { mmsText = fold $ prettyAdvisory advisory $ prettyTextSummary $ fst <$> concernedInfo
+                        , mmsMarkdown = Just $ fold $ prettyAdvisory advisory $ prettyMarkdown $ prettyMultiplePackages concernedInfo
+                        }
+                  , resultLocations =
+                      [ -- TODO(blackheaven) cabal files/lock?
+                        MkLocation $
+                          Just $
+                            MkPhysicalLocation
+                              { physicalLocationArtifactLocation = MkArtifactLocation $ T.pack ("file:///" <> projectRoot)
+                              , physicalLocationRegion = MkRegion 1 1 2 2 -- TODO(blackheaven): inspect lock file to find exact position
+                              }
+                      ]
+                  , resultLevel = Just Sarif.Error
+                  }
+          , runArtifacts =
+              [ -- TODO(blackheaven) cabal files/lock?
+                MkArtifact
+                  { artifactLocation = MkArtifactLocation $ T.pack ("file:///" <> projectRoot)
+                  , artifactMimeType = Nothing
+                  }
+              ]
+          }
+  withRunCodensityInIO mkHandle \hdl ->
+    liftIO . BSL.hPutStr hdl . Aeson.encode $ defaultLog {logRuns = [run]}
+
+data Segment = Segment
+  { sConsoleColors :: [Text]
+  , sMarkdownPrefix :: Text
+  , sText :: Text
+  }
+
+data Line = Line (Vector Segment) | BlockLine (Vector Segment) | EmptyLine
+
+data PrettyArgs a = PrettyArgs
+  { paFixed :: Vector Line
+  , paLine :: Line -> Vector a
+  , paSubtitle :: Vector Segment
+  }
+
+prettyTextSummary :: [Text] -> PrettyArgs Text
+prettyTextSummary packageNames =
+  PrettyArgs
+    { paFixed = mempty
+    , paLine =
+        \case
+          Line xs | filledLine xs -> (sText <$> xs) <> ["\n"]
+          BlockLine xs | filledLine xs -> (sText <$> xs) <> ["\n"]
+          Line _ -> mempty
+          BlockLine _ -> mempty
+          EmptyLine -> ["\n"]
+    , paSubtitle = [Segment [] "" $ "(" <> T.intercalate ", " packageNames <> ")"]
+    }
+
+prettyMultiline :: Vector Segment -> PrettyArgs ([Text], Text)
+prettyMultiline fixedLine =
+  PrettyArgs
+    { paFixed = [BlockLine fixedLine]
+    , paLine =
+        \case
+          Line xs | filledLine xs -> [([], "  ")] <> (mkSegment <$> xs) <> nl
+          BlockLine xs | filledLine xs -> [([], "  ")] <> (mkSegment <$> xs) <> nl
+          Line _ -> mempty
+          BlockLine _ -> mempty
+          EmptyLine -> nl
+    , paSubtitle = mempty
+    }
  where
-  fixAvailable = case mfv of
-    Nothing -> [([bold, red], "No fix version available")]
-    Just fv -> [([bold, green], "Fix available since version "), ([yellow], prettyVersion fv)]
+  mkSegment s = (sConsoleColors s, sText s)
+  nl = [([], "\n")]
+
+prettyMarkdown :: Vector Line -> PrettyArgs Text
+prettyMarkdown pkgs =
+  PrettyArgs
+    { paFixed = pkgs
+    , paLine =
+        \case
+          Line xs | filledLine xs -> (mkSegment <$> xs) <> ["\n"]
+          BlockLine xs | filledLine xs -> (mkSegment <$> xs) <> ["\n\n"]
+          Line _ -> mempty
+          BlockLine _ -> mempty
+          EmptyLine -> ["\n"]
+    , paSubtitle = mempty
+    }
+ where
+  mkSegment s = sMarkdownPrefix s <> sText s
+
+filledLine :: Foldable t => t Segment -> Bool
+filledLine = not . all (T.null . sText)
+
+prettySinglePackage :: Maybe Version -> Vector Segment
+prettySinglePackage =
+  \case
+    Nothing ->
+      [ Segment [bold, red] "" "No fix version available"
+      ]
+    Just fv ->
+      [ Segment [bold, green] "" "Fix available since version "
+      , Segment [yellow] "" $ prettyVersion fv
+      ]
+
+prettyMultiplePackages :: [(Text, Maybe Version)] -> Vector Line
+prettyMultiplePackages packages =
+  [Line [Segment [] "" "Concerned package:"]]
+    <> ( V.fromList packages <&> \(pkgName, mfv) ->
+          Line $ [Segment [] "" $ "* " <> pkgName <> ": "] <> prettySinglePackage mfv
+       )
+    <> [EmptyLine]
+
+prettyAdvisory :: Advisory -> PrettyArgs a -> Vector a
+prettyAdvisory Advisory {advisoryId, advisoryPublished, advisoryKeywords, advisorySummary} args =
+  foldMap @Vector
+    (foldMap $ paLine args)
+    [ [BlockLine [Segment [bold, blue] "# " $ hsecId <> " \"" <> advisorySummary <> "\""]]
+    , [BlockLine $ paSubtitle args]
+    , [BlockLine [Segment [] "" "published: ", Segment [bold] "" $ T.pack $ show advisoryPublished]]
+    , [BlockLine [Segment [] "" $ "https://haskell.github.io/security-advisories/advisory/" <> hsecId]]
+    , paFixed args
+    , [BlockLine [Segment [blue] "" $ T.intercalate ", " (coerce advisoryKeywords)]]
+    ]
+ where
+  hsecId = T.pack (printHsecId advisoryId)
 
 withRunCodensityInIO :: MonadUnliftIO m => Codensity IO a -> (a -> m b) -> m b
 withRunCodensityInIO cod k = withRunInIO \inIO -> runCodensity cod (inIO . k)
@@ -229,7 +384,9 @@ humanReadableHandler mkHandle =
         let verString = ([yellow], prettyVersion $ elaboratedPackageVersion i)
             pkgName = ([yellow], T.pack $ show $ unPackageName pn)
         pwetty hdl [([], "dependency "), pkgName, ([], " at version "), verString, ([], " is vulnerable for:")]
-        for_ (runIdentity (packageAdvisories i)) (pwetty hdl . uncurry prettyAdvisory)
+        for_
+          (runIdentity (packageAdvisories i))
+          (pwetty hdl . uncurry prettyAdvisory . fmap (prettyMultiline . prettySinglePackage))
 
 projectConfigFromFlags :: NixStyleFlags a -> ProjectConfig
 projectConfigFromFlags flags = commandLineFlagsToProjectConfig defaultGlobalFlags flags mempty
@@ -264,12 +421,23 @@ auditCommandParser =
             "verbose" -> Right Verbosity.verbose
             "deafening" -> Right Verbosity.deafening
             _ -> Left "verbosity has to be one of \"silent\", \"normal\", \"verbose\" or \"deafening\""
-        <*> flag HumanReadable Osv do
-          mconcat
-            [ long "json"
-            , short 'm'
-            , help "whether to format as json mapping package names to osvs that apply"
-            ]
+        <*> ( flag'
+                Osv
+                ( mconcat
+                    [ long "json"
+                    , short 'm'
+                    , help "whether to format as json mapping package names to osvs that apply"
+                    ]
+                )
+                <|> flag'
+                  Sarif
+                  ( mconcat
+                      [ long "sarif"
+                      , help "produce a sarif file (GitHub Code Scanning)"
+                      ]
+                  )
+                <|> pure HumanReadable
+            )
         <*> do
           let mkFileHandle fp = Codensity (withFile fp WriteMode)
           mkFileHandle

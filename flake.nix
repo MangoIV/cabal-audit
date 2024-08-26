@@ -42,6 +42,7 @@
           check.enable = true;
           settings.hooks = {
             cabal-fmt.enable = true;
+            fourmolu.enable = true;
             hlint.enable = true;
 
             alejandra.enable = true;

@@ -11,10 +11,6 @@
     devshell.url = "github:numtide/devshell";
     # end flake parts
     # end flake inputs
-
-    security-advisories.url = "github:haskell/security-advisories";
-    security-advisories.flake = false;
-    # end non-flake inputs
   };
   outputs = inputs:
     inputs.parts.lib.mkFlake {inherit inputs;} {
@@ -82,7 +78,7 @@
           inherit (hspkgs) cabal-audit;
           inherit (pkgs) groff;
           default = config.packages.cabal-audit;
-          cabal-audit-static = import ./nix/static.nix {inherit pkgs;};
+          cabal-audit-static = pkgs.pkgsStatic.callPackage ./nix/static.nix {};
           regen-nix = pkgs.writeShellApplication {
             name = "regen-cabal-audit-nix";
             runtimeInputs = [pkgs.cabal2nix pkgs.alejandra];

@@ -1,10 +1,11 @@
 {
+  groff,
   haskell,
   haskellPackages,
-  groff,
+  lib,
+  makeWrapper,
   perl536,
   upx,
-  lib,
   ...
 }: let
   hlib = haskell.lib.compose;
@@ -24,23 +25,22 @@
                 # https://github.com/NixOS/nixpkgs/issues/295608
                 perl = perl536;
               };
-            in
-              /*
-              bash
-              */
-              ''
-                mkdir -p "$out/share/man/man1"
-                "$out/bin/cabal" man --raw > "$out/share/man/man1/cabal.1"
+            in ''
+              mkdir -p "$out/share/man/man1"
+              "$out/bin/cabal" man --raw > "$out/share/man/man1/cabal.1"
 
-                wrapProgram "$out/bin/cabal" \
-                  --prefix PATH : "${lib.makeBinPath [groffOldPerl]}"
-              '';
+              wrapProgram "$out/bin/cabal" \
+                --prefix PATH : "${lib.makeBinPath [groffOldPerl]}"
+            '';
           }
-          (hself.callHackage "cabal-install" "3.10.3.0" {
-            Cabal-QuickCheck = null;
-            Cabal-described = null;
-            Cabal-tree-diff = null;
-          });
+          ((hself.callHackage "cabal-install" "3.10.3.0" {
+              Cabal-QuickCheck = null;
+              Cabal-described = null;
+              Cabal-tree-diff = null;
+            })
+            .overrideAttrs (old: {
+              nativeBuildInputs = old.nativeBuildInputs or [] ++ [makeWrapper];
+            }));
       });
   };
 in

@@ -15,11 +15,11 @@
 }:
 mkDerivation {
   pname = "hsec-core";
-  version = "0.2.0.0";
+  version = "0.2.0.1";
   src = fetchgit {
     url = "https://github.com/haskell/security-advisories.git";
-    sha256 = "05j68z2p0nw8qfwlm8l7576i8m8qadps3k7445z2yzrm7pcn8qhp";
-    rev = "d09058a544bf45cc0814ed9b300cd940bc263617";
+    sha256 = "0a78ra4b6mwgzh0apvczdw9nzphkis9xqa0siicfhfb59vj60lp2";
+    rev = "add617d5026bd31cad2bdbe8259b5f67381db246";
     fetchSubmodules = true;
   };
   postUnpack = "sourceRoot+=/code/hsec-core/; echo source root reset to $sourceRoot";

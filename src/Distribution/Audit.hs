@@ -66,20 +66,24 @@ owo = prettyStdErr
 
 data AuditException
   = -- | parsing the advisory database failed
-    ListAdvisoryValidationError {originalFilePath :: FilePath, parseError :: [ParseAdvisoryError]}
+    ListAdvisoryValidationError {parseError :: [(FilePath, ParseAdvisoryError)]}
   | -- | to rethrow exceptions thrown by cabal during plan elaboration
     CabalException {reason :: String, cabalException :: SomeException}
   deriving stock (Show, Generic)
 
 instance Exception AuditException where
   displayException = \case
-    ListAdvisoryValidationError dir errs ->
-      mconcat
-        [ "Listing the advisories in directory "
-        , dir
-        , " failed with: \n"
-        , mconcat $ displayException <$> errs
-        ]
+    ListAdvisoryValidationError errs ->
+      foldMap
+        ( \(fp, err) ->
+            unlines
+              [ "listing advisories in"
+              , fp
+              , "failed with"
+              , displayException err
+              ]
+        )
+        errs
     CabalException ctx (SomeException ex) ->
       "cabal failed while "
         <> ctx
@@ -172,7 +176,7 @@ buildAdvisories MkAuditConfig {advisoriesPathOrURL, verbosity} flags = do
   advisories <- do
     let k realPath =
           listAdvisories realPath
-            >>= validation (throwIO . ListAdvisoryValidationError realPath) pure
+            >>= validation (throwIO . ListAdvisoryValidationError) pure
     case advisoriesPathOrURL of
       Left fp -> k fp
       Right url -> withSystemTempDirectory "cabal-audit" \tmp -> do

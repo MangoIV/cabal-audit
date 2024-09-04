@@ -11,10 +11,6 @@
     devshell.url = "github:numtide/devshell";
     # end flake parts
     # end flake inputs
-
-    security-advisories.url = "github:haskell/security-advisories";
-    security-advisories.flake = false;
-    # end non-flake inputs
   };
   outputs = inputs:
     inputs.parts.lib.mkFlake {inherit inputs;} {
@@ -42,6 +38,7 @@
           check.enable = true;
           settings.hooks = {
             cabal-fmt.enable = true;
+            fourmolu.enable = true;
             hlint.enable = true;
 
             alejandra.enable = true;
@@ -81,12 +78,12 @@
           inherit (hspkgs) cabal-audit;
           inherit (pkgs) groff;
           default = config.packages.cabal-audit;
-          cabal-audit-static = import ./nix/static.nix {inherit pkgs;};
+          cabal-audit-static = pkgs.pkgsStatic.callPackage ./nix/static.nix {};
           regen-nix = pkgs.writeShellApplication {
             name = "regen-cabal-audit-nix";
             runtimeInputs = [pkgs.cabal2nix pkgs.alejandra];
             text = let
-              v = "d09058a544bf45cc0814ed9b300cd940bc263617";
+              v = "add617d5026bd31cad2bdbe8259b5f67381db246";
               cmd = pkg: ''
                 cabal2nix https://github.com/haskell/security-advisories.git \
                   --revision ${v} \

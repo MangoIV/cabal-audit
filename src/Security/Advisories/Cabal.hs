@@ -26,8 +26,9 @@ import Distribution.Version (Version)
 import GHC.Generics (Generic)
 import Security.Advisories
   ( Advisory (advisoryAffected)
-  , Affected (Affected, affectedPackage, affectedVersions)
+  , Affected (Affected, affectedComponentIdentifier, affectedVersions)
   , AffectedVersionRange (affectedVersionRangeFixed, affectedVersionRangeIntroduced)
+  , ComponentIdentifier (GHC, Hackage)
   )
 
 -- | for a given 'ElaboratedInstallPlan' and a list of advisories, construct a map of advisories
@@ -51,8 +52,10 @@ matchAdvisoriesForPlan plan = foldr advise Map.empty
         fixVersion = getAlt . foldMap (Alt . affectedVersionRangeFixed)
 
         advPkgs :: [(PackageName, ElaboratedPackageInfoAdvised)]
-        advPkgs = flip mapMaybe (advisoryAffected adv) \Affected {affectedPackage, affectedVersions} -> do
-          let pkgn = mkPackageName (T.unpack affectedPackage)
+        advPkgs = flip mapMaybe (advisoryAffected adv) \Affected {affectedComponentIdentifier, affectedVersions} -> do
+          pkgn <- case affectedComponentIdentifier of
+            Hackage t -> pure $ mkPackageName $ T.unpack t
+            GHC _ -> Nothing -- FUTUREWORK(mangoiv): we need to make a pass to find vulnerable ghc components
           MkElaboratedPackageInfoWith {elaboratedPackageVersion = elabv} <- installPlanToLookupTable plan !? pkgn
           if versionAffected elabv affectedVersions
             then Just (pkgn, MkElaboratedPackageInfoWith {elaboratedPackageVersion = elabv, packageAdvisories = Identity [(adv, fixVersion affectedVersions)]})

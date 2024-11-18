@@ -15,7 +15,7 @@
 
   toml-parser = hprev.toml-parser_2_0_1_0;
   sel = hlib.doJailbreak (hlib.markUnbroken hprev.sel);
-  typst = hprev.typst_0_5_0_5;
-  typst-symbols = hprev.typst-symbols_0_1_6;
-  texmath = hprev.texmath_0_12_8_9;
+  typst = hprev.typst_0_6;
+  typst-symbols = hprev.typst-symbols_0_1_7;
+  texmath = hprev.texmath_0_12_8_11;
 }

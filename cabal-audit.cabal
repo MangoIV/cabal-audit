@@ -22,7 +22,7 @@ maintainer:         contact@mangoiv.com
 category:           Data
 extra-doc-files:
 extra-source-files:
-tested-with:        GHC ==9.4.8 || ==9.6.6 || ==9.8.2
+tested-with:        GHC ==9.6.6 || ==9.8.2
 
 common common-all
   ghc-options:

@@ -47,7 +47,9 @@
           };
         };
 
-        devShells.plain-haskell = import ./nix/haskell-shell.nix {inherit hspkgs;};
+        devShells.plain-haskell = hspkgs.callPackage ./nix/haskell-shell.nix {
+          inherit (pkgs.haskell.packages.ghc98) haskell-language-server fourmolu;
+        };
 
         # https://flake.parts/options/devshell for more information; one of the advantages is
         # the beautiful menu this provides where one can add commands that are offered and loaded
@@ -83,7 +85,7 @@
             name = "regen-cabal-audit-nix";
             runtimeInputs = [pkgs.cabal2nix pkgs.alejandra];
             text = let
-              v = "add617d5026bd31cad2bdbe8259b5f67381db246";
+              v = "ef73a3748f31d8df1557546b26d2d587cdacf459";
               cmd = pkg: ''
                 cabal2nix https://github.com/haskell/security-advisories.git \
                   --revision ${v} \

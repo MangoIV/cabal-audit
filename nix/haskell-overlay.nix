@@ -10,12 +10,9 @@
 
   extensions = hprev.extensions_0_1_0_2.override {inherit (hfinal) Cabal;};
 
-  ormolu = hlib.doJailbreak (hprev.ormolu.override {inherit (hfinal) Cabal-syntax;});
-  fourmolu = hlib.doJailbreak (hprev.fourmolu.override {inherit (hfinal) Cabal-syntax;});
+  toml-parser = hfinal.callHackage "toml-parser" "2.0.1.0" {};
 
-  toml-parser = hprev.toml-parser_2_0_1_0;
-  sel = hlib.doJailbreak (hlib.markUnbroken hprev.sel);
-  typst = hprev.typst_0_5_0_5;
-  typst-symbols = hprev.typst-symbols_0_1_6;
-  texmath = hprev.texmath_0_12_8_9;
+  typst = hfinal.callHackage "typst" "0.5.0.5" {};
+  typst-symbols = hfinal.callHackage "typst-symbols" "0.1.6" {};
+  texmath = hfinal.callHackage "texmath" "0.12.8.9" {};
 }

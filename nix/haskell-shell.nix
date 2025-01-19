@@ -1,5 +1,10 @@
-{hspkgs, ...}:
-hspkgs.shellFor {
+{
+  shellFor,
+  haskell-language-server,
+  fourmolu,
+  ...
+}:
+shellFor {
   packages = hps: [hps.cabal-audit];
-  nativeBuildInputs = [hspkgs.haskell-language-server hspkgs.fourmolu];
+  nativeBuildInputs = [haskell-language-server fourmolu];
 }

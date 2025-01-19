@@ -18,8 +18,8 @@ mkDerivation {
   version = "0.2.0.1";
   src = fetchgit {
     url = "https://github.com/haskell/security-advisories.git";
-    sha256 = "0a78ra4b6mwgzh0apvczdw9nzphkis9xqa0siicfhfb59vj60lp2";
-    rev = "add617d5026bd31cad2bdbe8259b5f67381db246";
+    sha256 = "1x4zsw56hj13j2pc75vfdkw645r061a9h4rv26c6361j7wrpyr67";
+    rev = "ef73a3748f31d8df1557546b26d2d587cdacf459";
     fetchSubmodules = true;
   };
   postUnpack = "sourceRoot+=/code/hsec-core/; echo source root reset to $sourceRoot";

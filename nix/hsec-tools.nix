@@ -2,17 +2,19 @@
   mkDerivation,
   aeson,
   aeson-pretty,
+  atom-conduit,
   base,
   bytestring,
   Cabal-syntax,
   commonmark,
   commonmark-pandoc,
+  conduit,
+  conduit-extra,
   containers,
   cvss,
   data-default,
   directory,
   extra,
-  feed,
   fetchgit,
   file-embed,
   filepath,
@@ -31,6 +33,8 @@
   pretty-simple,
   prettyprinter,
   process,
+  refined,
+  resourcet,
   safe,
   tasty,
   tasty-golden,
@@ -41,15 +45,17 @@
   time,
   toml-parser,
   transformers,
+  uri-bytestring,
   validation-selective,
+  xml-conduit,
 }:
 mkDerivation {
   pname = "hsec-tools";
   version = "0.2.0.1";
   src = fetchgit {
     url = "https://github.com/haskell/security-advisories.git";
-    sha256 = "1x4zsw56hj13j2pc75vfdkw645r061a9h4rv26c6361j7wrpyr67";
-    rev = "ef73a3748f31d8df1557546b26d2d587cdacf459";
+    sha256 = "053ibpjkc4mf7a6z34cq4ii4q230njwsahp9v1byk2zf8qfz5czk";
+    rev = "3ea57d54282e76866bf4219a6d01737ea51ea132";
     fetchSubmodules = true;
   };
   postUnpack = "sourceRoot+=/code/hsec-tools/; echo source root reset to $sourceRoot";
@@ -57,17 +63,19 @@ mkDerivation {
   isExecutable = true;
   libraryHaskellDepends = [
     aeson
+    atom-conduit
     base
     bytestring
     Cabal-syntax
     commonmark
     commonmark-pandoc
+    conduit
+    conduit-extra
     containers
     cvss
     data-default
     directory
     extra
-    feed
     file-embed
     filepath
     hsec-core
@@ -81,12 +89,16 @@ mkDerivation {
     pretty
     prettyprinter
     process
+    refined
+    resourcet
     safe
     template-haskell
     text
     time
     toml-parser
+    uri-bytestring
     validation-selective
+    xml-conduit
   ];
   executableHaskellDepends = [
     aeson

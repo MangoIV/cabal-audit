@@ -1,12 +1,9 @@
 {hlib, ...}: hfinal: hprev: {
   cabal-audit = hfinal.callPackage ./cabal-audit.nix {};
   osv = hfinal.callPackage ./osv.nix {};
-  hsec-core = hlib.doJailbreak (hfinal.callPackage ./hsec-core.nix {});
-  hsec-tools = hlib.doJailbreak (hfinal.callPackage ./hsec-tools.nix {});
+  hsec-core = hlib.doJailbreak (hfinal.callPackage ./hsec-core.nix {Cabal-syntax = hfinal.Cabal-syntax_3_14_1_0;});
+  hsec-tools = hlib.doJailbreak (hfinal.callPackage ./hsec-tools.nix {Cabal-syntax = hfinal.Cabal-syntax_3_14_1_0;});
   cvss = hfinal.callPackage ./cvss.nix {};
-
-  Cabal-syntax = hprev.Cabal-syntax_3_12_1_0;
-  Cabal = hprev.Cabal_3_12_1_0;
 
   extensions = hprev.extensions_0_1_0_2.override {inherit (hfinal) Cabal;};
 

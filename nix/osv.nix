@@ -15,8 +15,8 @@ mkDerivation {
   version = "0.1.0.2";
   src = fetchgit {
     url = "https://github.com/haskell/security-advisories.git";
-    sha256 = "1x4zsw56hj13j2pc75vfdkw645r061a9h4rv26c6361j7wrpyr67";
-    rev = "ef73a3748f31d8df1557546b26d2d587cdacf459";
+    sha256 = "053ibpjkc4mf7a6z34cq4ii4q230njwsahp9v1byk2zf8qfz5czk";
+    rev = "3ea57d54282e76866bf4219a6d01737ea51ea132";
     fetchSubmodules = true;
   };
   postUnpack = "sourceRoot+=/code/osv/; echo source root reset to $sourceRoot";

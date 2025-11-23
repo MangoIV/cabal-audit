@@ -52,9 +52,9 @@ import Security.Advisories.Cabal (ElaboratedPackageInfoAdvised, ElaboratedPackag
 import Security.Advisories.Convert.OSV qualified as OSV
 import Security.Advisories.Filesystem (listAdvisories)
 import Security.Advisories.SBom.Types (prettyVersion)
+import Security.Advisories.Sync qualified as Sync
 import System.Exit (exitFailure)
 import System.IO (Handle, IOMode (WriteMode), stdout, withFile)
-import System.Process (callProcess)
 import UnliftIO (MonadIO (..), MonadUnliftIO (..), catch, throwIO, withSystemTempDirectory)
 import Validation (validation)
 
@@ -65,7 +65,9 @@ owo :: Has (Pretty [Text]) sig m => Vector ([Text], Text) -> m ()
 owo = prettyStdErr
 
 data AuditException
-  = -- | parsing the advisory database failed
+  = -- | fetching advisories failed
+    AdvisoriesFetchingError {fetchingError :: String}
+  | -- | parsing the advisory database failed
     ListAdvisoryValidationError {parseError :: [(FilePath, ParseAdvisoryError)]}
   | -- | to rethrow exceptions thrown by cabal during plan elaboration
     CabalException {reason :: String, cabalException :: SomeException}
@@ -73,17 +75,17 @@ data AuditException
 
 instance Exception AuditException where
   displayException = \case
+    AdvisoriesFetchingError err ->
+      mconcat
+        [ "Fetching the advisories failed with:\n"
+        , err
+        ]
     ListAdvisoryValidationError errs ->
-      foldMap
-        ( \(fp, err) ->
-            unlines
-              [ "listing advisories in"
-              , fp
-              , "failed with"
-              , displayException err
-              ]
-        )
-        errs
+      mconcat
+        [ "Listing the advisories in "
+        , "failed with: \n"
+        , mconcat $ displayException <$> errs
+        ]
     CabalException ctx (SomeException ex) ->
       "cabal failed while "
         <> ctx
@@ -179,10 +181,12 @@ buildAdvisories MkAuditConfig {advisoriesPathOrURL, verbosity} flags = do
             >>= validation (throwIO . ListAdvisoryValidationError) pure
     case advisoriesPathOrURL of
       Left fp -> k fp
-      Right url -> withSystemTempDirectory "cabal-audit" \tmp -> do
-        owo [([blue], "trying to clone " <> T.pack url)]
-        liftIO $ callProcess "git" ["clone", "--depth", "1", url, tmp]
-        k tmp
+      Right url -> withSystemTempDirectory "cabal-audit-" \tmp -> do
+        owo [([blue], "trying to fetch " <> T.pack url)]
+        eFetched <- liftIO $ Sync.sync $ Sync.githubSnapshot tmp url "generated/snapshot-export"
+        case eFetched of
+          Left e -> throwIO $ AdvisoriesFetchingError e
+          Right _ -> k tmp
 
   pure (matchAdvisoriesForPlan plan advisories, projectBaseContext)
 

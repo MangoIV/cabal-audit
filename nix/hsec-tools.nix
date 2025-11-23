@@ -2,17 +2,19 @@
   mkDerivation,
   aeson,
   aeson-pretty,
+  atom-conduit,
   base,
   bytestring,
   Cabal-syntax,
   commonmark,
   commonmark-pandoc,
+  conduit,
+  conduit-extra,
   containers,
   cvss,
   data-default,
   directory,
   extra,
-  feed,
   fetchgit,
   file-embed,
   filepath,
@@ -26,30 +28,31 @@
   pandoc,
   pandoc-types,
   parsec,
-  pathwalk,
   pretty,
   pretty-simple,
   prettyprinter,
   process,
-  safe,
+  refined,
+  resourcet,
   tasty,
   tasty-golden,
   tasty-hedgehog,
-  tasty-hunit,
   template-haskell,
   text,
   time,
   toml-parser,
   transformers,
+  uri-bytestring,
   validation-selective,
+  xml-conduit,
 }:
 mkDerivation {
   pname = "hsec-tools";
-  version = "0.2.0.1";
+  version = "0.3.0.0";
   src = fetchgit {
     url = "https://github.com/haskell/security-advisories.git";
-    sha256 = "1x4zsw56hj13j2pc75vfdkw645r061a9h4rv26c6361j7wrpyr67";
-    rev = "ef73a3748f31d8df1557546b26d2d587cdacf459";
+    sha256 = "114wj60jfdqb95h3fh3k8s0jy2nzya04rchidfdapnn0l5mf3xhn";
+    rev = "fc3453aa95edb296b1e4409f53d1c1210b479fc8";
     fetchSubmodules = true;
   };
   postUnpack = "sourceRoot+=/code/hsec-tools/; echo source root reset to $sourceRoot";
@@ -57,17 +60,19 @@ mkDerivation {
   isExecutable = true;
   libraryHaskellDepends = [
     aeson
+    atom-conduit
     base
     bytestring
     Cabal-syntax
     commonmark
     commonmark-pandoc
+    conduit
+    conduit-extra
     containers
     cvss
     data-default
     directory
     extra
-    feed
     file-embed
     filepath
     hsec-core
@@ -77,16 +82,18 @@ mkDerivation {
     pandoc
     pandoc-types
     parsec
-    pathwalk
     pretty
     prettyprinter
     process
-    safe
+    refined
+    resourcet
     template-haskell
     text
     time
     toml-parser
+    uri-bytestring
     validation-selective
+    xml-conduit
   ];
   executableHaskellDepends = [
     aeson
@@ -115,7 +122,6 @@ mkDerivation {
     tasty
     tasty-golden
     tasty-hedgehog
-    tasty-hunit
     text
     time
     toml-parser

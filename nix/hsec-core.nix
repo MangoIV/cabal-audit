@@ -15,11 +15,11 @@
 }:
 mkDerivation {
   pname = "hsec-core";
-  version = "0.2.0.1";
+  version = "0.2.1.0";
   src = fetchgit {
     url = "https://github.com/haskell/security-advisories.git";
-    sha256 = "1x4zsw56hj13j2pc75vfdkw645r061a9h4rv26c6361j7wrpyr67";
-    rev = "ef73a3748f31d8df1557546b26d2d587cdacf459";
+    sha256 = "114wj60jfdqb95h3fh3k8s0jy2nzya04rchidfdapnn0l5mf3xhn";
+    rev = "fc3453aa95edb296b1e4409f53d1c1210b479fc8";
     fetchSubmodules = true;
   };
   postUnpack = "sourceRoot+=/code/hsec-core/; echo source root reset to $sourceRoot";
@@ -33,7 +33,14 @@ mkDerivation {
     text
     time
   ];
-  testHaskellDepends = [base cvss tasty tasty-hunit text];
+  testHaskellDepends = [
+    base
+    Cabal-syntax
+    cvss
+    tasty
+    tasty-hunit
+    text
+  ];
   description = "Core package representing Haskell advisories";
   license = lib.licenses.bsd3;
 }

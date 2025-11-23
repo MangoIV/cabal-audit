@@ -85,7 +85,7 @@
             name = "regen-cabal-audit-nix";
             runtimeInputs = [pkgs.cabal2nix pkgs.alejandra];
             text = let
-              v = "ef73a3748f31d8df1557546b26d2d587cdacf459";
+              v = "fc3453aa95edb296b1e4409f53d1c1210b479fc8";
               cmd = pkg: ''
                 cabal2nix https://github.com/haskell/security-advisories.git \
                   --revision ${v} \
@@ -93,7 +93,7 @@
               '';
             in ''
               pushd "$PRJ_ROOT"/nix
-              ${lib.concatStrings (map cmd ["osv" "cvss" "hsec-core" "hsec-tools"])}
+              ${lib.concatStrings (map cmd ["osv" "purl" "cvss" "hsec-core" "hsec-sync" "hsec-tools"])}
               cabal2nix ../. > ./cabal-audit.nix
               alejandra ./.
               popd

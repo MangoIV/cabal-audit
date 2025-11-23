@@ -84,7 +84,7 @@ instance Exception AuditException where
       mconcat
         [ "Listing the advisories in "
         , "failed with: \n"
-        , mconcat $ displayException <$> errs
+        , foldMap (\(fp, ex) -> mconcat ["* ", fp, ":\n", displayException ex]) errs
         ]
     CabalException ctx (SomeException ex) ->
       "cabal failed while "

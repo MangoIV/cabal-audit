@@ -84,6 +84,7 @@ library
     , filepath
     , fused-effects
     , hsec-core
+    , hsec-sync
     , hsec-tools
     , http-client
     , kan-extensions

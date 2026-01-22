@@ -6,24 +6,36 @@ source-repository-package
   type: git
   subdir: code/hsec-tools
   location: https://github.com/haskell/security-advisories.git
-  tag: add617d5026bd31cad2bdbe8259b5f67381db246
+  tag: fc3453aa95edb296b1e4409f53d1c1210b479fc8
+
+source-repository-package
+  type: git
+  subdir: code/hsec-sync
+  location: https://github.com/haskell/security-advisories.git
+  tag: fc3453aa95edb296b1e4409f53d1c1210b479fc8
 
 source-repository-package
   type: git
   subdir: code/hsec-core
   location: https://github.com/haskell/security-advisories.git
-  tag: add617d5026bd31cad2bdbe8259b5f67381db246
+  tag: fc3453aa95edb296b1e4409f53d1c1210b479fc8
 
 source-repository-package
   type: git
   subdir: code/cvss
   location: https://github.com/haskell/security-advisories.git
-  tag: add617d5026bd31cad2bdbe8259b5f67381db246
+  tag: fc3453aa95edb296b1e4409f53d1c1210b479fc8
 
-source-repository-package
+source-repository-packagep
   type: git
   subdir: code/osv
   location: https://github.com/haskell/security-advisories.git
-  tag: add617d5026bd31cad2bdbe8259b5f67381db246
+  tag: fc3453aa95edb296b1e4409f53d1c1210b479fc8
+
+source-repository-packagep
+  type: git
+  subdir: code/purl
+  location: https://github.com/haskell/security-advisories.git
+  tag: fc3453aa95edb296b1e4409f53d1c1210b479fc8
 
 test-show-details: direct

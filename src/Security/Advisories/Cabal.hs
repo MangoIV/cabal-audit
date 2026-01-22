@@ -24,7 +24,7 @@ import Distribution.InstalledPackageInfo (sourcePackageId)
 import Distribution.Package (PackageIdentifier (PackageIdentifier, pkgName, pkgVersion), PackageName, mkPackageName)
 import Distribution.Version (Version)
 import GHC.Generics (Generic)
-import Security.Advisories
+import Security.Advisories -- .Core.Advisory
   ( Advisory (advisoryAffected)
   , Affected (Affected, affectedComponentIdentifier, affectedVersions)
   , AffectedVersionRange (affectedVersionRangeFixed, affectedVersionRangeIntroduced)

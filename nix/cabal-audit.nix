@@ -11,6 +11,7 @@
   filepath,
   fused-effects,
   hsec-core,
+  hsec-sync,
   hsec-tools,
   hspec,
   http-client,
@@ -46,6 +47,7 @@ mkDerivation {
     filepath
     fused-effects
     hsec-core
+    hsec-sync
     hsec-tools
     http-client
     kan-extensions

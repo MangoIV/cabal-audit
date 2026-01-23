@@ -3,7 +3,7 @@
   description = "cabal-audit's flake";
   inputs = {
     # flake inputs
-    nixpkgs.url = "github:nixos/nixpkgs/nixpkgs-unstable";
+    nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
 
     # flake parts
     parts.url = "github:hercules-ci/flake-parts";
@@ -24,7 +24,7 @@
         ...
       }: let
         hlib = pkgs.haskell.lib.compose;
-        hspkgs = pkgs.haskell.packages.ghc98.override {
+        hspkgs = pkgs.haskellPackages.override {
           overrides = import ./nix/haskell-overlay.nix {inherit hlib;};
         };
       in {
@@ -87,7 +87,7 @@
             text = let
               v = "fc3453aa95edb296b1e4409f53d1c1210b479fc8";
               cmd = pkg: ''
-                cabal2nix https://github.com/haskell/security-advisories.git \
+                cabal2nix https://github.com/haskell/security-advisories \
                   --revision ${v} \
                   --subpath code/${pkg}/ > ./${pkg}.nix
               '';

@@ -22,7 +22,7 @@ maintainer:         contact@mangoiv.com
 category:           Data
 extra-doc-files:
 extra-source-files:
-tested-with:        GHC ==9.4.8 || ==9.6.6 || ==9.8.2
+tested-with:        GHC ==9.8.4 || ==9.10.3 || ==9.12.2
 
 common common-all
   ghc-options:
@@ -74,7 +74,7 @@ library
 
   build-depends:
     , aeson
-    , base                  <5
+    , base                  >=4.18 && <5
     , bytestring
     , Cabal
     , cabal-install

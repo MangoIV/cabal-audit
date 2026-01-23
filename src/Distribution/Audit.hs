@@ -136,7 +136,7 @@ auditMain = do
           (advisories, projectBaseContext) <- buildAdvisories auditConfig nixStyleFlags
           handleBuiltAdvisories advisories projectBaseContext (outputHandle auditConfig) (outputFormat auditConfig)
           pure advisories
-        )
+      )
         `catch` \(SomeException ex) -> do
           owo
             [ ([red, bold], "cabal-audit failed :\n")
@@ -356,7 +356,7 @@ prettyMultiplePackages :: [(Text, Maybe Version)] -> Vector Line
 prettyMultiplePackages packages =
   [Line [Segment [] "" "Concerned package:"]]
     <> ( V.fromList packages <&> \(pkgName, mfv) ->
-          Line $ [Segment [] "" $ "* " <> pkgName <> ": "] <> prettySinglePackage mfv
+           Line $ [Segment [] "" $ "* " <> pkgName <> ": "] <> prettySinglePackage mfv
        )
     <> [EmptyLine]
 

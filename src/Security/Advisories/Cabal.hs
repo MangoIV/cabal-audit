@@ -87,7 +87,7 @@ data ElaboratedPackageInfoWith f = MkElaboratedPackageInfoWith
   -- [Advisory] after looking up the advisories in the DB we also
   -- want to attach the newest fixed version of a given Advisory
   }
-  deriving stock (Generic)
+  deriving stock Generic
 
 deriving stock instance Eq (f [(Advisory, Maybe Version)]) => (Eq (ElaboratedPackageInfoWith f))
 

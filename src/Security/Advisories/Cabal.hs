@@ -3,6 +3,7 @@
 
 module Security.Advisories.Cabal
   ( matchAdvisoriesForPlan
+  , AuditedComponent (..)
   , ElaboratedPackageInfoWith (..)
   , ElaboratedPackageInfoAdvised
   , ElaboratedPackageInfo
@@ -38,10 +39,10 @@ matchAdvisoriesForPlan
   -- ^ the plan as created by cabal
   -> [Advisory]
   -- ^ the advisories as discovered in some advisory dir
-  -> Map PackageName ElaboratedPackageInfoAdvised
+  -> Map AuditedComponent ElaboratedPackageInfoAdvised
 matchAdvisoriesForPlan plan = foldr advise Map.empty
  where
-  advise :: Advisory -> Map PackageName ElaboratedPackageInfoAdvised -> Map PackageName ElaboratedPackageInfoAdvised
+  advise :: Advisory -> Map AuditedComponent ElaboratedPackageInfoAdvised -> Map AuditedComponent ElaboratedPackageInfoAdvised
   advise adv = do
     let versionAffected :: Version -> [AffectedVersionRange] -> Bool
         versionAffected v =
@@ -51,14 +52,14 @@ matchAdvisoriesForPlan plan = foldr advise Map.empty
         fixVersion :: [AffectedVersionRange] -> Maybe Version
         fixVersion = getAlt . foldMap (Alt . affectedVersionRangeFixed)
 
-        advPkgs :: [(PackageName, ElaboratedPackageInfoAdvised)]
+        advPkgs :: [(AuditedComponent, ElaboratedPackageInfoAdvised)]
         advPkgs = flip mapMaybe (advisoryAffected adv) \Affected {affectedComponentIdentifier, affectedVersions} -> do
           pkgn <- case affectedComponentIdentifier of
             Hackage t -> pure $ mkPackageName $ T.unpack t
             GHC _ -> Nothing -- FUTUREWORK(mangoiv): we need to make a pass to find vulnerable ghc components
           MkElaboratedPackageInfoWith {elaboratedPackageVersion = elabv} <- installPlanToLookupTable plan !? pkgn
           if versionAffected elabv affectedVersions
-            then Just (pkgn, MkElaboratedPackageInfoWith {elaboratedPackageVersion = elabv, packageAdvisories = Identity [(adv, fixVersion affectedVersions)]})
+            then Just (HackageComponent pkgn, MkElaboratedPackageInfoWith {elaboratedPackageVersion = elabv, packageAdvisories = Identity [(adv, fixVersion affectedVersions)]})
             else Nothing
 
     flip
@@ -73,6 +74,11 @@ matchAdvisoriesForPlan plan = foldr advise Map.empty
 type ElaboratedPackageInfoAdvised = ElaboratedPackageInfoWith Identity
 
 type ElaboratedPackageInfo = ElaboratedPackageInfoWith Proxy
+
+data AuditedComponent
+  = HackageComponent PackageName
+  | GhcComponent T.Text
+  deriving stock (Eq, Ord, Show, Generic)
 
 -- | information about the elaborated package that
 --   is to be looked up that we want to add  to the

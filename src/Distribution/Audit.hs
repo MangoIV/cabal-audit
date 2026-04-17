@@ -8,7 +8,15 @@
 --    database
 -- 3. summarise the found vulnerabilities as a humand readable or
 --    otherwise formatted output
-module Distribution.Audit (auditMain, buildAdvisories, AuditConfig (..), AuditException (..)) where
+module Distribution.Audit
+  ( auditMain
+  , AuditConfig (..)
+  , AuditException (..)
+  , buildAdvisories
+  , renderAuditedComponent
+  , renderAuditedComponentLabel
+  )
+where
 
 import Colourista.Pure (blue, bold, formatWith, green, red, yellow)
 import Control.Algebra (Has)

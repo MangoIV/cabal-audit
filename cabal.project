@@ -26,13 +26,13 @@ source-repository-package
   location: https://github.com/haskell/security-advisories.git
   tag: fc3453aa95edb296b1e4409f53d1c1210b479fc8
 
-source-repository-packagep
+source-repository-package
   type: git
   subdir: code/osv
   location: https://github.com/haskell/security-advisories.git
   tag: fc3453aa95edb296b1e4409f53d1c1210b479fc8
 
-source-repository-packagep
+source-repository-package
   type: git
   subdir: code/purl
   location: https://github.com/haskell/security-advisories.git

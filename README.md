@@ -89,6 +89,76 @@ dependency "process" at version 1.6.18.0 is vulnerable for:
 > [!Note]
 > If you encounter an error related to lock file incompatibility, consider upgrading your Nix version.
 
+## Using in Github action
+
+Generate SARIF for GitHub code scanning:
+```bash
+cabal-audit --sarif -o cabal-audit.sarif
+```
+
+Example GitHub Actions workflow:
+```yaml
+name: Security code scanning
+
+on:
+  push:
+    branches: [main]
+  # manual re-run  
+  workflow_dispatch:  
+
+# cancel duplicated runs
+concurrency:
+  group: security-code-scanning-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  cabal-audit:
+    name: cabal-audit SARIF
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      security-events: write
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Set up GHC
+        uses: haskell-actions/setup@v2
+        with:
+          ghc-version: '9.10.1'
+          cabal-version: '3.12.1.0'
+          cabal-update: true
+
+      - name: Build plan
+        run: |
+          cabal configure --enable-tests --enable-benchmarks --disable-documentation
+          cabal build --dry-run
+
+      - name: Check out MangoIV/cabal-audit
+        uses: actions/checkout@v6
+        with:
+          repository: MangoIV/cabal-audit
+          path: cabal-audit-src
+
+      - name: Install cabal-audit from source
+        run: |
+          cd cabal-audit-src
+          cabal install exe:cabal-audit --installdir="$HOME/.local/bin" --overwrite-policy=always
+
+      - name: Run cabal-audit
+        run: |
+          "$HOME/.local/bin/cabal-audit" --sarif -o cabal-audit.sarif
+
+      - name: Upload SARIF
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: cabal-audit.sarif
+          category: cabal-audit
+```
+After running on main branch you should see results in `Security and quality` -> `Code scanning`
+
 ## Implemented
 
 - query for vulnerable dependencies in cabal plan

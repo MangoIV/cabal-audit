@@ -1,8 +1,10 @@
 {-# LANGUAGE StrictData #-}
+{-# LANGUAGE TupleSections #-}
 {-# LANGUAGE UndecidableInstances #-}
 
 module Security.Advisories.Cabal
   ( matchAdvisoriesForPlan
+  , lookupAuditedComponent
   , AuditedComponent (..)
   , ElaboratedPackageInfoWith (..)
   , ElaboratedPackageInfoAdvised
@@ -12,7 +14,7 @@ where
 
 import Data.Functor.Identity (Identity (Identity))
 import Data.Kind (Type)
-import Data.Map (Map, (!?))
+import Data.Map (Map)
 import Data.Map.Strict qualified as Map
 import Data.Maybe (mapMaybe)
 import Data.Monoid (Alt (Alt, getAlt), Any (Any, getAny))
@@ -52,14 +54,18 @@ matchAdvisoriesForPlan plan = foldr advise Map.empty
         fixVersion :: [AffectedVersionRange] -> Maybe Version
         fixVersion = getAlt . foldMap (Alt . affectedVersionRangeFixed)
 
+        lookupTable :: Map PackageName ElaboratedPackageInfo
+        lookupTable = installPlanToLookupTable plan
+
+        ghcToolLookup :: Map T.Text Version
+        ghcToolLookup = Map.empty
+
         advPkgs :: [(AuditedComponent, ElaboratedPackageInfoAdvised)]
         advPkgs = flip mapMaybe (advisoryAffected adv) \Affected {affectedComponentIdentifier, affectedVersions} -> do
-          pkgn <- case affectedComponentIdentifier of
-            Hackage t -> pure $ mkPackageName $ T.unpack t
-            GHC _ -> Nothing -- FUTUREWORK(mangoiv): we need to make a pass to find vulnerable ghc components
-          MkElaboratedPackageInfoWith {elaboratedPackageVersion = elabv} <- installPlanToLookupTable plan !? pkgn
+          (component, pkgInfo) <- lookupAuditedComponent lookupTable ghcToolLookup affectedComponentIdentifier
+          let MkElaboratedPackageInfoWith {elaboratedPackageVersion = elabv} = pkgInfo
           if versionAffected elabv affectedVersions
-            then Just (HackageComponent pkgn, MkElaboratedPackageInfoWith {elaboratedPackageVersion = elabv, packageAdvisories = Identity [(adv, fixVersion affectedVersions)]})
+            then Just (component, pkgInfo {packageAdvisories = Identity [(adv, fixVersion affectedVersions)]})
             else Nothing
 
     flip
@@ -70,6 +76,20 @@ matchAdvisoriesForPlan plan = foldr advise Map.empty
     MkElaboratedPackageInfoWith {elaboratedPackageVersion = ver1, packageAdvisories = advs1}
     MkElaboratedPackageInfoWith {packageAdvisories = advs2} =
       MkElaboratedPackageInfoWith {elaboratedPackageVersion = ver1, packageAdvisories = advs1 <> advs2}
+
+lookupAuditedComponent
+  :: Map PackageName ElaboratedPackageInfo
+  -> Map T.Text Version
+  -> ComponentIdentifier
+  -> Maybe (AuditedComponent, ElaboratedPackageInfo)
+lookupAuditedComponent hackageLookup ghcToolLookup affectedComponentId = case affectedComponentId of
+  Hackage t ->
+    let pkgName = mkPackageName (T.unpack t)
+     in (HackageComponent pkgName,) <$> Map.lookup pkgName hackageLookup
+  GHC toolName ->
+    let toolText = T.pack (show toolName)
+     in (GhcComponent toolText,) . mkPackageInfo
+          <$> Map.lookup toolText ghcToolLookup
 
 type ElaboratedPackageInfoAdvised = ElaboratedPackageInfoWith Identity
 
@@ -115,4 +135,11 @@ installPlanToLookupTable = Map.fromList . fmap planPkgToPackageInfo . Plan.toLis
             sourcePackageId
             elabPkgSourceId
             pkg
-    (pkgName, MkElaboratedPackageInfoWith {elaboratedPackageVersion = pkgVersion, packageAdvisories = Proxy})
+    (pkgName, mkPackageInfo pkgVersion)
+
+mkPackageInfo :: Version -> ElaboratedPackageInfo
+mkPackageInfo version =
+  MkElaboratedPackageInfoWith
+    { elaboratedPackageVersion = version
+    , packageAdvisories = Proxy
+    }

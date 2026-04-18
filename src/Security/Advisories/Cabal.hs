@@ -5,6 +5,7 @@
 module Security.Advisories.Cabal
   ( matchAdvisoriesForPlan
   , lookupAuditedComponent
+  , mkGhcToolLookup
   , AuditedComponent (..)
   , ElaboratedPackageInfoWith (..)
   , ElaboratedPackageInfoAdvised
@@ -32,6 +33,7 @@ import Security.Advisories -- .Core.Advisory
   , Affected (Affected, affectedComponentIdentifier, affectedVersions)
   , AffectedVersionRange (affectedVersionRangeFixed, affectedVersionRangeIntroduced)
   , ComponentIdentifier (GHC, Hackage)
+  , GHCComponent (..)
   )
 
 -- | for a given 'ElaboratedInstallPlan' and a list of advisories, construct a map of advisories
@@ -39,10 +41,12 @@ import Security.Advisories -- .Core.Advisory
 matchAdvisoriesForPlan
   :: ElaboratedInstallPlan
   -- ^ the plan as created by cabal
+  -> Version
+  -- ^ GHC version
   -> [Advisory]
   -- ^ the advisories as discovered in some advisory dir
   -> Map AuditedComponent ElaboratedPackageInfoAdvised
-matchAdvisoriesForPlan plan = foldr advise Map.empty
+matchAdvisoriesForPlan plan ghcVersion = foldr advise Map.empty
  where
   advise :: Advisory -> Map AuditedComponent ElaboratedPackageInfoAdvised -> Map AuditedComponent ElaboratedPackageInfoAdvised
   advise adv = do
@@ -58,7 +62,7 @@ matchAdvisoriesForPlan plan = foldr advise Map.empty
         lookupTable = installPlanToLookupTable plan
 
         ghcToolLookup :: Map T.Text Version
-        ghcToolLookup = Map.empty
+        ghcToolLookup = mkGhcToolLookup ghcVersion
 
         advPkgs :: [(AuditedComponent, ElaboratedPackageInfoAdvised)]
         advPkgs = flip mapMaybe (advisoryAffected adv) \Affected {affectedComponentIdentifier, affectedVersions} -> do
@@ -87,9 +91,37 @@ lookupAuditedComponent hackageLookup ghcToolLookup affectedComponentId = case af
     let pkgName = mkPackageName (T.unpack t)
      in (HackageComponent pkgName,) <$> Map.lookup pkgName hackageLookup
   GHC toolName ->
-    let toolText = T.pack (show toolName)
+    let toolText = renderGhcComponent toolName
      in (GhcComponent toolText,) . mkPackageInfo
           <$> Map.lookup toolText ghcToolLookup
+
+mkGhcToolLookup :: Version -> Map T.Text Version
+mkGhcToolLookup v =
+  Map.fromList
+    [ ("ghc", v)
+    , ("ghci", v)
+    , ("rts", v)
+    , ("ghc-pkg", v)
+    , ("runghc", v)
+    , ("ghc-iserv", v)
+    , ("hp2ps", v)
+    , ("hpc", v)
+    , ("hsc2hs", v)
+    , ("haddock", v)
+    ]
+
+renderGhcComponent :: GHCComponent -> T.Text
+renderGhcComponent = \case
+  GHCCompiler -> "ghc"
+  GHCi -> "ghci"
+  GHCRTS -> "rts"
+  GHCPkg -> "ghc-pkg"
+  RunGHC -> "runghc"
+  IServ -> "ghc-iserv"
+  HP2PS -> "hp2ps"
+  HPC -> "hpc"
+  HSC2HS -> "hsc2hs"
+  Haddock -> "haddock"
 
 type ElaboratedPackageInfoAdvised = ElaboratedPackageInfoWith Identity
 

@@ -48,8 +48,10 @@ import Distribution.Client.ProjectOrchestration
   , commandLineFlagsToProjectConfig
   , establishProjectBaseContext
   )
-import Distribution.Client.ProjectPlanning (rebuildInstallPlan)
+import Distribution.Client.ProjectPlanning (ElaboratedSharedConfig (pkgConfigCompiler), rebuildInstallPlan)
 import Distribution.Client.Setup (defaultGlobalFlags)
+import Distribution.Compiler (CompilerId (CompilerId))
+import Distribution.Simple.Compiler (compilerId)
 import Distribution.Types.PackageName (unPackageName)
 import Distribution.Verbosity qualified as Verbosity
 import Distribution.Version (Version)
@@ -175,11 +177,11 @@ buildAdvisories MkAuditConfig {advisoriesPathOrURL, verbosity} flags = do
   -- 2. the "original" elaborated plan
   --
   -- as far as I can tell, for our use case these should be indistinguishable
-  (_improvedPlan, plan, _, _, _) <-
+  (_improvedPlan, plan, sharedConfig, _, _) <-
     liftIO do
       rebuildInstallPlan verbosity distDirLayout cabalDirLayout projectConfig localPackages Nothing
         `catch` \ex -> throwIO $ CabalException {reason = "elaborating the install-plan", cabalException = ex}
-
+  let CompilerId _ ghcVersion = compilerId (pkgConfigCompiler sharedConfig)
   when (verbosity > Verbosity.normal) do
     owo [([blue], "Finished building the cabal install plan, looking for advisories...")]
 
@@ -196,7 +198,7 @@ buildAdvisories MkAuditConfig {advisoriesPathOrURL, verbosity} flags = do
           Left e -> throwIO $ AdvisoriesFetchingError e
           Right _ -> k tmp
 
-  pure (matchAdvisoriesForPlan plan advisories, projectBaseContext)
+  pure (matchAdvisoriesForPlan plan ghcVersion advisories, projectBaseContext)
 
 -- | provides the built advisories in some consumable form, e.g. as human readable form
 --

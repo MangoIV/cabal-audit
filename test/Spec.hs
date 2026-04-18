@@ -10,6 +10,7 @@ import Security.Advisories.Cabal
   ( AuditedComponent (..)
   , ElaboratedPackageInfoWith (..)
   , lookupAuditedComponent
+  , mkGhcToolLookup
   )
 import Security.Advisories.Core.Advisory (ComponentIdentifier (..))
 import Security.Advisories.Core.Advisory qualified as Advisory
@@ -46,7 +47,16 @@ spec = do
         `shouldBe` Just expected
 
     it "finds a GHC tool in the GHC tool lookup" do
-      let toolName = T.pack "GHCi"
+      let toolName = T.pack "ghc"
+          version = mkVersion [9, 10, 3]
+          ghcLookup = Map.fromList [(toolName, version)]
+          expected = (GhcComponent toolName, pkgInfo version)
+
+      lookupAuditedComponent Map.empty ghcLookup (GHC Advisory.GHCCompiler)
+        `shouldBe` Just expected
+
+    it "finds GHCi in the GHC tool lookup" do
+      let toolName = T.pack "ghci"
           version = mkVersion [9, 10, 3]
           ghcLookup = Map.fromList [(toolName, version)]
           expected = (GhcComponent toolName, pkgInfo version)
@@ -61,6 +71,30 @@ spec = do
     it "returns Nothing for a missing GHC tool" do
       lookupAuditedComponent Map.empty Map.empty (GHC Advisory.GHCi)
         `shouldBe` Nothing
+
+    it "does not match mixed-case GHC tool keys" do
+      let version = mkVersion [9, 10, 3]
+          ghcLookup = Map.fromList [(T.pack "GHC", version)]
+
+      lookupAuditedComponent Map.empty ghcLookup (GHC Advisory.GHCCompiler)
+        `shouldBe` Nothing
+
+  describe "mkGhcToolLookup" do
+    it "contains GHC and GHCi" do
+      let version = mkVersion [9, 10, 3]
+      mkGhcToolLookup version
+        `shouldBe` Map.fromList
+          [ ("ghc", mkVersion [9, 10, 3])
+          , ("ghc-iserv", mkVersion [9, 10, 3])
+          , ("ghc-pkg", mkVersion [9, 10, 3])
+          , ("ghci", mkVersion [9, 10, 3])
+          , ("haddock", mkVersion [9, 10, 3])
+          , ("hp2ps", mkVersion [9, 10, 3])
+          , ("hpc", mkVersion [9, 10, 3])
+          , ("hsc2hs", mkVersion [9, 10, 3])
+          , ("rts", mkVersion [9, 10, 3])
+          , ("runghc", mkVersion [9, 10, 3])
+          ]
 
 pkgInfo :: Version -> ElaboratedPackageInfoWith Proxy
 pkgInfo version =

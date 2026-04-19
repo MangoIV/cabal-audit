@@ -115,7 +115,7 @@ jobs:
   cabal-audit:
     name: cabal-audit SARIF
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 42
     permissions:
       contents: read
       security-events: write

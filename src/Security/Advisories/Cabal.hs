@@ -4,8 +4,6 @@
 
 module Security.Advisories.Cabal
   ( matchAdvisoriesForPlan
-  , lookupAuditedComponent
-  , mkGhcToolLookup
   , AuditedComponent (..)
   , ElaboratedPackageInfoWith (..)
   , ElaboratedPackageInfoAdvised

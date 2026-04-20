@@ -121,12 +121,8 @@ test-suite spec
   main-is:          Main.hs
   other-modules:    Spec
   build-depends:
-    , base          <5
+    , base         <5
     , cabal-audit
-    , Cabal-syntax
-    , containers
-    , hsec-core
     , hspec
-    , text
 
   default-language: Haskell2010

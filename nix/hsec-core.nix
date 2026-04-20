@@ -5,6 +5,7 @@
   cvss,
   fetchgit,
   lib,
+  network-uri,
   osv,
   pandoc-types,
   safe,
@@ -15,11 +16,11 @@
 }:
 mkDerivation {
   pname = "hsec-core";
-  version = "0.2.1.0";
+  version = "0.3.0.0";
   src = fetchgit {
     url = "https://github.com/haskell/security-advisories";
-    sha256 = "114wj60jfdqb95h3fh3k8s0jy2nzya04rchidfdapnn0l5mf3xhn";
-    rev = "fc3453aa95edb296b1e4409f53d1c1210b479fc8";
+    sha256 = "08yxj23q6pn4cfc94dvd3f3jzmxi1kqjbla9gvwak4xh2bg1axrv";
+    rev = "eb0b808c0a1fe3a57e9407dd6b91bcb1c8411345";
     fetchSubmodules = true;
   };
   postUnpack = "sourceRoot+=/code/hsec-core/; echo source root reset to $sourceRoot";
@@ -27,6 +28,7 @@ mkDerivation {
     base
     Cabal-syntax
     cvss
+    network-uri
     osv
     pandoc-types
     safe

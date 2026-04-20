@@ -20,9 +20,11 @@
   filepath,
   hedgehog,
   hsec-core,
+  lens,
   lib,
   lucid,
   mtl,
+  network-uri,
   optparse-applicative,
   osv,
   pandoc,
@@ -48,11 +50,11 @@
 }:
 mkDerivation {
   pname = "hsec-tools";
-  version = "0.3.0.0";
+  version = "0.3.0.1";
   src = fetchgit {
     url = "https://github.com/haskell/security-advisories";
-    sha256 = "114wj60jfdqb95h3fh3k8s0jy2nzya04rchidfdapnn0l5mf3xhn";
-    rev = "fc3453aa95edb296b1e4409f53d1c1210b479fc8";
+    sha256 = "08yxj23q6pn4cfc94dvd3f3jzmxi1kqjbla9gvwak4xh2bg1axrv";
+    rev = "eb0b808c0a1fe3a57e9407dd6b91bcb1c8411345";
     fetchSubmodules = true;
   };
   postUnpack = "sourceRoot+=/code/hsec-tools/; echo source root reset to $sourceRoot";
@@ -76,8 +78,10 @@ mkDerivation {
     file-embed
     filepath
     hsec-core
+    lens
     lucid
     mtl
+    network-uri
     osv
     pandoc
     pandoc-types
@@ -102,6 +106,7 @@ mkDerivation {
     Cabal-syntax
     filepath
     hsec-core
+    network-uri
     optparse-applicative
     text
     transformers
@@ -116,6 +121,7 @@ mkDerivation {
     directory
     hedgehog
     hsec-core
+    network-uri
     osv
     pretty-simple
     prettyprinter

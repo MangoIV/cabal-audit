@@ -18,19 +18,18 @@ import Data.Map.Strict qualified as Map
 import Data.Maybe (mapMaybe)
 import Data.Monoid (Alt (Alt, getAlt), Any (Any, getAny))
 import Data.Proxy (Proxy (Proxy))
-import Data.Text qualified as T
 import Distribution.Client.InstallPlan (foldPlanPackage)
 import Distribution.Client.InstallPlan qualified as Plan
 import Distribution.Client.ProjectPlanning (ElaboratedInstallPlan, elabPkgSourceId)
 import Distribution.InstalledPackageInfo (sourcePackageId)
-import Distribution.Package (PackageIdentifier (PackageIdentifier, pkgName, pkgVersion), PackageName, mkPackageName)
+import Distribution.Package (PackageIdentifier (PackageIdentifier, pkgName, pkgVersion), PackageName)
 import Distribution.Version (Version)
 import GHC.Generics (Generic)
 import Security.Advisories -- .Core.Advisory
   ( Advisory (advisoryAffected)
   , Affected (Affected, affectedComponentIdentifier, affectedVersions)
   , AffectedVersionRange (affectedVersionRangeFixed, affectedVersionRangeIntroduced)
-  , ComponentIdentifier (GHC, Hackage)
+  , ComponentIdentifier (GHC, Repository)
   , GHCComponent (..)
   )
 
@@ -85,9 +84,8 @@ lookupAuditedComponent
   -> ComponentIdentifier
   -> Maybe (AuditedComponent, ElaboratedPackageInfo)
 lookupAuditedComponent hackageLookup ghcToolLookup affectedComponentId = case affectedComponentId of
-  Hackage t ->
-    let pkgName = mkPackageName (T.unpack t)
-     in (HackageComponent pkgName,) <$> Map.lookup pkgName hackageLookup
+  Repository _ _ pkgName ->
+    (HackageComponent pkgName,) <$> Map.lookup pkgName hackageLookup
   GHC toolName ->
     ( \version ->
         ( GhcComponent toolName
@@ -110,8 +108,6 @@ data AuditedComponent
   = HackageComponent PackageName
   | GhcComponent GHCComponent
   deriving stock (Eq, Ord, Show, Generic)
-
-deriving stock instance Ord GHCComponent
 
 -- | information about the elaborated package that
 --   is to be looked up that we want to add  to the

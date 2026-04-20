@@ -137,8 +137,7 @@ data AuditedComponent
   | GhcComponent GHCComponent
   deriving stock (Eq, Ord, Show, Generic)
 
-instance Ord GHCComponent where
-  compare a b = compare (renderGhcComponent a) (renderGhcComponent b)
+deriving stock instance Ord GHCComponent
 
 -- | information about the elaborated package that
 --   is to be looked up that we want to add  to the

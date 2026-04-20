@@ -8,15 +8,7 @@
 --    database
 -- 3. summarise the found vulnerabilities as a humand readable or
 --    otherwise formatted output
-module Distribution.Audit
-  ( auditMain
-  , AuditConfig (..)
-  , AuditException (..)
-  , buildAdvisories
-  , renderAuditedComponent
-  , renderAuditedComponentLabel
-  )
-where
+module Distribution.Audit (auditMain, buildAdvisories, AuditConfig (..), AuditException (..)) where
 
 import Colourista.Pure (blue, bold, formatWith, green, red, yellow)
 import Control.Algebra (Has)
@@ -58,7 +50,13 @@ import Distribution.Version (Version)
 import GHC.Generics (Generic)
 import Options.Applicative
 import Security.Advisories (Advisory (..), Keyword (..), ParseAdvisoryError (..), printHsecId)
-import Security.Advisories.Cabal (AuditedComponent (..), ElaboratedPackageInfoAdvised, ElaboratedPackageInfoWith (..), matchAdvisoriesForPlan)
+import Security.Advisories.Cabal
+  ( AuditedComponent (..)
+  , ElaboratedPackageInfoAdvised
+  , ElaboratedPackageInfoWith (..)
+  , matchAdvisoriesForPlan
+  , renderGhcComponent
+  )
 import Security.Advisories.Convert.OSV qualified as OSV
 import Security.Advisories.Filesystem (listAdvisories)
 import Security.Advisories.SBom.Types (prettyVersion)
@@ -304,12 +302,16 @@ data PrettyArgs a = PrettyArgs
 renderAuditedComponent :: AuditedComponent -> Text
 renderAuditedComponent = \case
   HackageComponent pkg -> T.pack (unPackageName pkg)
-  GhcComponent tool -> tool
+  GhcComponent tool -> renderGhcComponent tool
+
+renderAuditedComponentKind :: AuditedComponent -> Text
+renderAuditedComponentKind = \case
+  HackageComponent _ -> "Hackage package"
+  GhcComponent _ -> "GHC tool"
 
 renderAuditedComponentLabel :: AuditedComponent -> Text
-renderAuditedComponentLabel = \case
-  HackageComponent pkg -> "dependency " <> T.pack (unPackageName pkg)
-  GhcComponent tool -> "GHC tool " <> tool
+renderAuditedComponentLabel component =
+  renderAuditedComponentKind component <> " " <> renderAuditedComponent component
 
 prettyTextSummary :: [Text] -> PrettyArgs Text
 prettyTextSummary packageNames =

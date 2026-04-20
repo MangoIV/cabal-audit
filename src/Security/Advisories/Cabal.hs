@@ -4,6 +4,7 @@
 
 module Security.Advisories.Cabal
   ( matchAdvisoriesForPlan
+  , renderGhcComponent
   , AuditedComponent (..)
   , ElaboratedPackageInfoWith (..)
   , ElaboratedPackageInfoAdvised
@@ -59,7 +60,7 @@ matchAdvisoriesForPlan plan ghcVersion = foldr advise Map.empty
         lookupTable :: Map PackageName ElaboratedPackageInfo
         lookupTable = installPlanToLookupTable plan
 
-        ghcToolLookup :: Map T.Text Version
+        ghcToolLookup :: Map GHCComponent Version
         ghcToolLookup = mkGhcToolLookup ghcVersion
 
         advPkgs :: [(AuditedComponent, ElaboratedPackageInfoAdvised)]
@@ -81,7 +82,7 @@ matchAdvisoriesForPlan plan ghcVersion = foldr advise Map.empty
 
 lookupAuditedComponent
   :: Map PackageName ElaboratedPackageInfo
-  -> Map T.Text Version
+  -> Map GHCComponent Version
   -> ComponentIdentifier
   -> Maybe (AuditedComponent, ElaboratedPackageInfo)
 lookupAuditedComponent hackageLookup ghcToolLookup affectedComponentId = case affectedComponentId of
@@ -89,23 +90,29 @@ lookupAuditedComponent hackageLookup ghcToolLookup affectedComponentId = case af
     let pkgName = mkPackageName (T.unpack t)
      in (HackageComponent pkgName,) <$> Map.lookup pkgName hackageLookup
   GHC toolName ->
-    let toolText = renderGhcComponent toolName
-     in (GhcComponent toolText,) . mkPackageInfo
-          <$> Map.lookup toolText ghcToolLookup
+    ( \version ->
+        ( GhcComponent toolName
+        , MkElaboratedPackageInfoWith
+            { elaboratedPackageVersion = version
+            , packageAdvisories = Proxy
+            }
+        )
+    )
+      <$> Map.lookup toolName ghcToolLookup
 
-mkGhcToolLookup :: Version -> Map T.Text Version
+mkGhcToolLookup :: Version -> Map GHCComponent Version
 mkGhcToolLookup v =
   Map.fromList
-    [ ("ghc", v)
-    , ("ghci", v)
-    , ("rts", v)
-    , ("ghc-pkg", v)
-    , ("runghc", v)
-    , ("ghc-iserv", v)
-    , ("hp2ps", v)
-    , ("hpc", v)
-    , ("hsc2hs", v)
-    , ("haddock", v)
+    [ (GHCCompiler, v)
+    , (GHCi, v)
+    , (GHCRTS, v)
+    , (GHCPkg, v)
+    , (RunGHC, v)
+    , (IServ, v)
+    , (HP2PS, v)
+    , (HPC, v)
+    , (HSC2HS, v)
+    , (Haddock, v)
     ]
 
 renderGhcComponent :: GHCComponent -> T.Text
@@ -127,8 +134,11 @@ type ElaboratedPackageInfo = ElaboratedPackageInfoWith Proxy
 
 data AuditedComponent
   = HackageComponent PackageName
-  | GhcComponent T.Text
+  | GhcComponent GHCComponent
   deriving stock (Eq, Ord, Show, Generic)
+
+instance Ord GHCComponent where
+  compare a b = compare (renderGhcComponent a) (renderGhcComponent b)
 
 -- | information about the elaborated package that
 --   is to be looked up that we want to add  to the
@@ -165,11 +175,4 @@ installPlanToLookupTable = Map.fromList . fmap planPkgToPackageInfo . Plan.toLis
             sourcePackageId
             elabPkgSourceId
             pkg
-    (pkgName, mkPackageInfo pkgVersion)
-
-mkPackageInfo :: Version -> ElaboratedPackageInfo
-mkPackageInfo version =
-  MkElaboratedPackageInfoWith
-    { elaboratedPackageVersion = version
-    , packageAdvisories = Proxy
-    }
+    (pkgName, MkElaboratedPackageInfoWith {elaboratedPackageVersion = pkgVersion, packageAdvisories = Proxy})

@@ -91,73 +91,9 @@ dependency "process" at version 1.6.18.0 is vulnerable for:
 
 ## Using in Github action
 
-Generate SARIF for GitHub code scanning:
-```bash
-cabal-audit --sarif -o cabal-audit.sarif
-```
+To scan for vulnerabilities and upload a [SARIF report for GitHub code scanning](https://docs.github.com/en/code-security/concepts/code-scanning/sarif-files), you can use [blackheaven/haskell-security-action](https://github.com/blackheaven/haskell-security-action). See its README for an example workflow.
 
-Example GitHub Actions workflow:
-```yaml
-name: Security code scanning
-
-on:
-  push:
-    branches: [main]
-  # manual re-run  
-  workflow_dispatch:  
-
-# cancel duplicated runs
-concurrency:
-  group: security-code-scanning-${{ github.ref }}
-  cancel-in-progress: true
-
-jobs:
-  cabal-audit:
-    name: cabal-audit SARIF
-    runs-on: ubuntu-latest
-    timeout-minutes: 42
-    permissions:
-      contents: read
-      security-events: write
-
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v6
-
-      - name: Set up GHC
-        uses: haskell-actions/setup@v2
-        with:
-          ghc-version: '9.10.1'
-          cabal-version: '3.12.1.0'
-          cabal-update: true
-
-      - name: Build plan
-        run: |
-          cabal configure --enable-tests --enable-benchmarks --disable-documentation
-          cabal build --dry-run
-
-      - name: Check out MangoIV/cabal-audit
-        uses: actions/checkout@v6
-        with:
-          repository: MangoIV/cabal-audit
-          path: cabal-audit-src
-
-      - name: Install cabal-audit from source
-        run: |
-          cd cabal-audit-src
-          cabal install exe:cabal-audit --installdir="$HOME/.local/bin" --overwrite-policy=always
-
-      - name: Run cabal-audit
-        run: |
-          "$HOME/.local/bin/cabal-audit" --sarif -o cabal-audit.sarif
-
-      - name: Upload SARIF
-        uses: github/codeql-action/upload-sarif@v4
-        with:
-          sarif_file: cabal-audit.sarif
-          category: cabal-audit
-```
-After running on main branch you should see results in `Security and quality` -> `Code scanning`
+After running on main branch, results should appear in `Security and quality` -> `Code scanning`
 
 ## Implemented
 

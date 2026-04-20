@@ -49,13 +49,12 @@ import Distribution.Verbosity qualified as Verbosity
 import Distribution.Version (Version)
 import GHC.Generics (Generic)
 import Options.Applicative
-import Security.Advisories (Advisory (..), Keyword (..), ParseAdvisoryError (..), printHsecId)
+import Security.Advisories (Advisory (..), Keyword (..), ParseAdvisoryError (..), ghcComponentToText, printHsecId)
 import Security.Advisories.Cabal
   ( AuditedComponent (..)
   , ElaboratedPackageInfoAdvised
   , ElaboratedPackageInfoWith (..)
   , matchAdvisoriesForPlan
-  , renderGhcComponent
   )
 import Security.Advisories.Convert.OSV qualified as OSV
 import Security.Advisories.Filesystem (listAdvisories)
@@ -302,7 +301,7 @@ data PrettyArgs a = PrettyArgs
 renderAuditedComponent :: AuditedComponent -> Text
 renderAuditedComponent = \case
   HackageComponent pkg -> T.pack (unPackageName pkg)
-  GhcComponent tool -> renderGhcComponent tool
+  GhcComponent tool -> ghcComponentToText tool
 
 renderAuditedComponentKind :: AuditedComponent -> Text
 renderAuditedComponentKind = \case

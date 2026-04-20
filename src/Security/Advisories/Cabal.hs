@@ -4,7 +4,6 @@
 
 module Security.Advisories.Cabal
   ( matchAdvisoriesForPlan
-  , renderGhcComponent
   , AuditedComponent (..)
   , ElaboratedPackageInfoWith (..)
   , ElaboratedPackageInfoAdvised
@@ -101,32 +100,7 @@ lookupAuditedComponent hackageLookup ghcToolLookup affectedComponentId = case af
       <$> Map.lookup toolName ghcToolLookup
 
 mkGhcToolLookup :: Version -> Map GHCComponent Version
-mkGhcToolLookup v =
-  Map.fromList
-    [ (GHCCompiler, v)
-    , (GHCi, v)
-    , (GHCRTS, v)
-    , (GHCPkg, v)
-    , (RunGHC, v)
-    , (IServ, v)
-    , (HP2PS, v)
-    , (HPC, v)
-    , (HSC2HS, v)
-    , (Haddock, v)
-    ]
-
-renderGhcComponent :: GHCComponent -> T.Text
-renderGhcComponent = \case
-  GHCCompiler -> "ghc"
-  GHCi -> "ghci"
-  GHCRTS -> "rts"
-  GHCPkg -> "ghc-pkg"
-  RunGHC -> "runghc"
-  IServ -> "ghc-iserv"
-  HP2PS -> "hp2ps"
-  HPC -> "hpc"
-  HSC2HS -> "hsc2hs"
-  Haddock -> "haddock"
+mkGhcToolLookup v = Map.fromList $ map (,v) [minBound .. maxBound]
 
 type ElaboratedPackageInfoAdvised = ElaboratedPackageInfoWith Identity
 

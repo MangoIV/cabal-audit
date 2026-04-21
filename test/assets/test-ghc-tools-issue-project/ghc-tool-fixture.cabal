@@ -1,0 +1,13 @@
+cabal-version: 3.0
+name:          ghc-tool-fixture
+version:       0.1.0.0
+build-type:    Simple
+
+library
+  exposed-modules:  Dummy
+  hs-source-dirs:   src
+  build-depends:
+    , base
+    , cryptohash
+
+  default-language: GHC2021

@@ -40,15 +40,22 @@ import Distribution.Client.ProjectOrchestration
   , commandLineFlagsToProjectConfig
   , establishProjectBaseContext
   )
-import Distribution.Client.ProjectPlanning (rebuildInstallPlan)
+import Distribution.Client.ProjectPlanning (ElaboratedSharedConfig (pkgConfigCompiler), rebuildInstallPlan)
 import Distribution.Client.Setup (defaultGlobalFlags)
-import Distribution.Types.PackageName (PackageName, unPackageName)
+import Distribution.Compiler (CompilerId (CompilerId))
+import Distribution.Simple.Compiler (compilerId)
+import Distribution.Types.PackageName (unPackageName)
 import Distribution.Verbosity qualified as Verbosity
 import Distribution.Version (Version)
 import GHC.Generics (Generic)
 import Options.Applicative
-import Security.Advisories (Advisory (..), Keyword (..), ParseAdvisoryError (..), printHsecId)
-import Security.Advisories.Cabal (ElaboratedPackageInfoAdvised, ElaboratedPackageInfoWith (..), matchAdvisoriesForPlan)
+import Security.Advisories (Advisory (..), Keyword (..), ParseAdvisoryError (..), ghcComponentToText, printHsecId)
+import Security.Advisories.Cabal
+  ( AuditedComponent (..)
+  , ElaboratedPackageInfoAdvised
+  , ElaboratedPackageInfoWith (..)
+  , matchAdvisoriesForPlan
+  )
 import Security.Advisories.Convert.OSV qualified as OSV
 import Security.Advisories.Filesystem (listAdvisories)
 import Security.Advisories.SBom.Types (prettyVersion)
@@ -152,7 +159,7 @@ buildAdvisories
   :: (MonadUnliftIO m, Has (Pretty [Text]) sig m)
   => AuditConfig
   -> NixStyleFlags ()
-  -> m (M.Map PackageName ElaboratedPackageInfoAdvised, ProjectBaseContext)
+  -> m (M.Map AuditedComponent ElaboratedPackageInfoAdvised, ProjectBaseContext)
 buildAdvisories MkAuditConfig {advisoriesPathOrURL, verbosity} flags = do
   let cliConfig = projectConfigFromFlags flags
 
@@ -167,11 +174,11 @@ buildAdvisories MkAuditConfig {advisoriesPathOrURL, verbosity} flags = do
   -- 2. the "original" elaborated plan
   --
   -- as far as I can tell, for our use case these should be indistinguishable
-  (_improvedPlan, plan, _, _, _) <-
+  (_improvedPlan, plan, sharedConfig, _, _) <-
     liftIO do
       rebuildInstallPlan verbosity distDirLayout cabalDirLayout projectConfig localPackages Nothing
         `catch` \ex -> throwIO $ CabalException {reason = "elaborating the install-plan", cabalException = ex}
-
+  let CompilerId _ ghcVersion = compilerId (pkgConfigCompiler sharedConfig)
   when (verbosity > Verbosity.normal) do
     owo [([blue], "Finished building the cabal install plan, looking for advisories...")]
 
@@ -188,14 +195,14 @@ buildAdvisories MkAuditConfig {advisoriesPathOrURL, verbosity} flags = do
           Left e -> throwIO $ AdvisoriesFetchingError e
           Right _ -> k tmp
 
-  pure (matchAdvisoriesForPlan plan advisories, projectBaseContext)
+  pure (matchAdvisoriesForPlan plan ghcVersion advisories, projectBaseContext)
 
 -- | provides the built advisories in some consumable form, e.g. as human readable form
 --
 -- FUTUREWORK(mangoiv): provide output as JSON
 handleBuiltAdvisories
   :: (MonadUnliftIO m, Has (Pretty [Text]) sig m)
-  => M.Map PackageName ElaboratedPackageInfoAdvised
+  => M.Map AuditedComponent ElaboratedPackageInfoAdvised
   -> ProjectBaseContext
   -> Codensity IO Handle
   -> OutputFormat
@@ -205,12 +212,12 @@ handleBuiltAdvisories mp pbc mkHandle = \case
   Osv -> osvHandler mkHandle mp
   Sarif -> sarifHandler mkHandle pbc $ M.toList mp
 
-osvHandler :: MonadUnliftIO m => Codensity IO Handle -> M.Map PackageName ElaboratedPackageInfoAdvised -> m ()
+osvHandler :: MonadUnliftIO m => Codensity IO Handle -> M.Map AuditedComponent ElaboratedPackageInfoAdvised -> m ()
 osvHandler mkHandle mp =
   withRunCodensityInIO mkHandle \hdl ->
     liftIO . BSL.hPutStr hdl . Aeson.encode @Value . object $
       flip M.foldMapWithKey mp \pn MkElaboratedPackageInfoWith {elaboratedPackageVersion, packageAdvisories} ->
-        [ fromString (unPackageName pn)
+        [ fromString (T.unpack (renderAuditedComponent pn))
             .= object
               [ "version" .= prettyVersion @Text elaboratedPackageVersion
               , "advisories" .= map (OSV.convert . fst) (runIdentity packageAdvisories)
@@ -221,7 +228,7 @@ sarifHandler
   :: MonadUnliftIO m
   => Codensity IO Handle
   -> ProjectBaseContext
-  -> [(PackageName, ElaboratedPackageInfoAdvised)]
+  -> [(AuditedComponent, ElaboratedPackageInfoAdvised)]
   -> m ()
 sarifHandler mkHandle projectBaseContext packageAdvisories = do
   let projectRoot = distProjectRootDirectory $ distDirLayout projectBaseContext -- TODO(blackheaven): resolve repository root (in GitHub Action, we get the cloned directory, instead of the directory from repository's root)
@@ -230,7 +237,7 @@ sarifHandler mkHandle projectBaseContext packageAdvisories = do
           M.fromListWith (\(advisory, pkgsInfo) (_, pkgsInfo') -> (advisory, pkgsInfo <> pkgsInfo')) $
             packageAdvisories >>= \(pkgName, pkgInfo) ->
               runIdentity pkgInfo.packageAdvisories <&> \(advisory, fixedAt) ->
-                (advisory.advisoryId, (advisory, [(T.pack $ unPackageName pkgName, fixedAt)]))
+                (advisory.advisoryId, (advisory, [(renderAuditedComponent pkgName, fixedAt)]))
       run =
         MkRun
           { runTool =
@@ -290,6 +297,20 @@ data PrettyArgs a = PrettyArgs
   , paLine :: Line -> Vector a
   , paSubtitle :: Vector Segment
   }
+
+renderAuditedComponent :: AuditedComponent -> Text
+renderAuditedComponent = \case
+  HackageComponent pkg -> T.pack (unPackageName pkg)
+  GhcComponent tool -> ghcComponentToText tool
+
+renderAuditedComponentKind :: AuditedComponent -> Text
+renderAuditedComponentKind = \case
+  HackageComponent _ -> "Hackage package"
+  GhcComponent _ -> "GHC tool"
+
+renderAuditedComponentLabel :: AuditedComponent -> Text
+renderAuditedComponentLabel component =
+  renderAuditedComponentKind component <> " " <> renderAuditedComponent component
 
 prettyTextSummary :: [Text] -> PrettyArgs Text
 prettyTextSummary packageNames =
@@ -381,17 +402,23 @@ withRunCodensityInIO cod k = withRunInIO \inIO -> runCodensity cod (inIO . k)
 humanReadableHandler
   :: (MonadUnliftIO m, Has (Pretty [Text]) sig m)
   => Codensity IO Handle
-  -> [(PackageName, ElaboratedPackageInfoAdvised)]
+  -> [(AuditedComponent, ElaboratedPackageInfoAdvised)]
   -> m ()
 humanReadableHandler mkHandle =
   withRunCodensityInIO mkHandle . flip \hdl -> \case
     [] -> pwetty hdl [([green, bold], "No advisories found.")]
     avs -> do
       pwetty hdl [([bold, red], "\n\nFound advisories:\n")]
-      for_ avs \(pn, i) -> do
+      for_ avs \(component, i) -> do
         let verString = ([yellow], prettyVersion $ elaboratedPackageVersion i)
-            pkgName = ([yellow], T.pack $ show $ unPackageName pn)
-        pwetty hdl [([], "dependency "), pkgName, ([], " at version "), verString, ([], " is vulnerable for:")]
+            componentLabel = ([], renderAuditedComponentLabel component)
+        pwetty
+          hdl
+          [ componentLabel
+          , ([], " at version ")
+          , verString
+          , ([], " is vulnerable for:")
+          ]
         for_
           (runIdentity (packageAdvisories i))
           (pwetty hdl . uncurry prettyAdvisory . fmap (prettyMultiline . prettySinglePackage))

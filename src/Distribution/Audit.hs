@@ -15,7 +15,7 @@ import Control.Algebra (Has)
 import Control.Carrier.Lift (runM)
 import Control.Effect.Pretty (Pretty, PrettyC, pretty, prettyStdErr, runPretty)
 import Control.Exception (Exception (displayException), SomeException (SomeException))
-import Control.Monad (when)
+import Control.Monad (forM, when)
 import Control.Monad.Codensity (Codensity (Codensity, runCodensity))
 import Data.Aeson (KeyValue ((.=)), Value, object)
 import Data.Aeson qualified as Aeson
@@ -24,6 +24,7 @@ import Data.Coerce (coerce)
 import Data.Foldable (fold, for_)
 import Data.Functor ((<&>))
 import Data.Functor.Identity (Identity (runIdentity))
+import Data.List (nubBy, sortOn)
 import Data.Map qualified as M
 import Data.SARIF as Sarif
 import Data.String (IsString (fromString))
@@ -60,7 +61,9 @@ import Security.Advisories.Convert.OSV qualified as OSV
 import Security.Advisories.Filesystem (listAdvisories)
 import Security.Advisories.SBom.Types (prettyVersion)
 import Security.Advisories.Sync qualified as Sync
+import System.Directory (doesFileExist, listDirectory)
 import System.Exit (exitFailure)
+import System.FilePath (takeExtension, (</>))
 import System.IO (Handle, IOMode (WriteMode), stdout, withFile)
 import UnliftIO (MonadIO (..), MonadUnliftIO (..), catch, throwIO, withSystemTempDirectory)
 import Validation (validation)
@@ -238,6 +241,15 @@ sarifHandler mkHandle projectBaseContext packageAdvisories = do
             packageAdvisories >>= \(pkgName, pkgInfo) ->
               runIdentity pkgInfo.packageAdvisories <&> \(advisory, fixedAt) ->
                 (advisory.advisoryId, (advisory, [(renderAuditedComponent pkgName, fixedAt)]))
+  advisoryLocations <- forM advisories $ \(_, concernedInfo) ->
+    liftIO $
+      chooseSarifLocationForPackages
+        projectRoot
+        (fst <$> concernedInfo)
+  let advisoriesWithLocations = zip advisories advisoryLocations
+  let rules =
+        nubBy (\a b -> rdId a == rdId b) $
+          map (ruleForAdvisory . fst) advisories
       run =
         MkRun
           { runTool =
@@ -251,10 +263,12 @@ sarifHandler mkHandle projectBaseContext packageAdvisories = do
                         [ tool "hsec-tools" VERSION_hsec_tools
                         , tool "ghc" $ T.pack __GLASGOW_HASKELL_FULL_VERSION__
                         ]
-                    , toolDriver = tool "cabal-audit" VERSION_cabal_audit
+                    , toolDriver =
+                        let toolCabalAudit = tool "cabal-audit" VERSION_cabal_audit
+                         in toolCabalAudit {toolComponentRules = rules}
                     }
           , runResults =
-              advisories <&> \(advisory, concernedInfo) ->
+              advisoriesWithLocations <&> \((advisory, concernedInfo), (sarifLocation, sarifRegion)) ->
                 MkResult
                   { resultRuleId = T.pack $ printHsecId advisory.advisoryId
                   , resultMessage =
@@ -267,22 +281,93 @@ sarifHandler mkHandle projectBaseContext packageAdvisories = do
                         MkLocation $
                           Just $
                             MkPhysicalLocation
-                              { physicalLocationArtifactLocation = MkArtifactLocation $ T.pack ("file:///" <> projectRoot)
-                              , physicalLocationRegion = MkRegion 1 1 2 2 -- TODO(blackheaven): inspect lock file to find exact position
+                              { physicalLocationArtifactLocation = MkArtifactLocation $ T.pack sarifLocation
+                              , physicalLocationRegion = sarifRegion -- TODO(blackheaven): inspect lock file to find exact position
                               }
                       ]
                   , resultLevel = Just Sarif.Error
                   }
           , runArtifacts =
-              [ -- TODO(blackheaven) cabal files/lock?
-                MkArtifact
-                  { artifactLocation = MkArtifactLocation $ T.pack ("file:///" <> projectRoot)
-                  , artifactMimeType = Nothing
-                  }
-              ]
+              -- TODO(blackheaven) cabal files/lock?
+              nubBy
+                (\a b -> artifactLocation a == artifactLocation b)
+                ( advisoriesWithLocations <&> \((_, _), (sarifLocation, _)) ->
+                    MkArtifact
+                      { artifactLocation = MkArtifactLocation $ T.pack sarifLocation
+                      , artifactMimeType = Nothing
+                      }
+                )
           }
   withRunCodensityInIO mkHandle \hdl ->
     liftIO . BSL.hPutStr hdl . Aeson.encode $ defaultLog {logRuns = [run]}
+
+advisoryUrl :: Advisory -> Text
+advisoryUrl advisory =
+  "https://haskell.github.io/security-advisories/advisory/"
+    <> T.pack (printHsecId advisory.advisoryId)
+
+ruleForAdvisory :: Advisory -> ReportingDescriptor
+ruleForAdvisory advisory =
+  (defaultReportingDescriptor ruleId)
+    { rdName = Just ruleId
+    , rdShortDescription =
+        Just $
+          MkMultiformatMessageString
+            { mmsText = advisory.advisorySummary
+            , mmsMarkdown = Nothing
+            }
+    , rdFullDescription =
+        Just $
+          MkMultiformatMessageString
+            { mmsText =
+                "Haskell Security Advisory: "
+                  <> advisory.advisorySummary
+                  <> ". Keywords: "
+                  <> T.intercalate ", " (coerce advisory.advisoryKeywords)
+            , mmsMarkdown = Nothing
+            }
+    , rdHelpUri = Just (advisoryUrl advisory)
+    , rdDefaultConfiguration =
+        Just
+          defaultReportingConfiguration
+            { rcLevel = Just Sarif.Error
+            }
+    }
+ where
+  ruleId = T.pack (printHsecId advisory.advisoryId)
+
+chooseSarifLocationForPackages
+  :: FilePath
+  -> [Text]
+  -> IO (FilePath, Region)
+chooseSarifLocationForPackages projectRoot packageNames = do
+  sarifLocation <- chooseSarifLocation projectRoot
+  pure (sarifLocation, MkRegion 1 1 1 1)
+
+chooseSarifLocation :: FilePath -> IO FilePath
+chooseSarifLocation projectRoot = do
+  let freezeFile = projectRoot </> "cabal.project.freeze"
+      projectFile = projectRoot </> "cabal.project"
+
+  freezeExists <- doesFileExist freezeFile
+  if freezeExists
+    then pure "cabal.project.freeze"
+    else do
+      projectExists <- doesFileExist projectFile
+      if projectExists
+        then pure "cabal.project"
+        else do
+          entries <- listDirectory projectRoot
+          let cabalFiles =
+                sortOn
+                  id
+                  [ e
+                  | e <- entries
+                  , takeExtension e == ".cabal"
+                  ]
+          pure $ case cabalFiles of
+            fp : _ -> fp
+            [] -> "."
 
 data Segment = Segment
   { sConsoleColors :: [Text]

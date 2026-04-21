@@ -15,7 +15,7 @@ import Control.Algebra (Has)
 import Control.Carrier.Lift (runM)
 import Control.Effect.Pretty (Pretty, PrettyC, pretty, prettyStdErr, runPretty)
 import Control.Exception (Exception (displayException), SomeException (SomeException))
-import Control.Monad (forM, when)
+import Control.Monad (filterM, forM, when)
 import Control.Monad.Codensity (Codensity (Codensity, runCodensity))
 import Data.Aeson (KeyValue ((.=)), Value, object)
 import Data.Aeson qualified as Aeson
@@ -24,12 +24,13 @@ import Data.Coerce (coerce)
 import Data.Foldable (fold, for_)
 import Data.Functor ((<&>))
 import Data.Functor.Identity (Identity (runIdentity))
-import Data.List (nubBy, sortOn)
+import Data.List (isPrefixOf, nubBy, sortOn)
 import Data.Map qualified as M
 import Data.SARIF as Sarif
 import Data.String (IsString (fromString))
 import Data.Text (Text)
 import Data.Text qualified as T
+import Data.Text.IO qualified as TIO
 import Data.Vector (Vector)
 import Data.Vector qualified as V
 import Distribution.Client.DistDirLayout (DistDirLayout (distProjectRootDirectory))
@@ -336,13 +337,108 @@ ruleForAdvisory advisory =
  where
   ruleId = T.pack (printHsecId advisory.advisoryId)
 
+-- search in
+-- 1 cabal.project.freeze
+-- 2 cabal.project
+-- 3 root .cabal file
+-- For each candidate file, look for the first affected package name
+-- if found, return that file and an exact-ish MkRegion
+-- otherwise returs - Region 1:1
 chooseSarifLocationForPackages
   :: FilePath
   -> [Text]
   -> IO (FilePath, Region)
 chooseSarifLocationForPackages projectRoot packageNames = do
-  sarifLocation <- chooseSarifLocation projectRoot
-  pure (sarifLocation, MkRegion 1 1 1 1)
+  let freezeFile = "cabal.project.freeze"
+      projectFile = "cabal.project"
+
+  rootEntries <- listDirectory projectRoot
+  let cabalFiles =
+        [ entry
+        | entry <- rootEntries
+        , takeExtension entry == ".cabal"
+        ]
+
+      candidateFiles =
+        [freezeFile, projectFile] <> cabalFiles
+
+  existingCandidates <- filterM (doesFileExist . (projectRoot </>)) candidateFiles
+
+  found <- findFirstPackageOccurrence projectRoot existingCandidates packageNames
+
+  case found of
+    Just located -> pure located
+    Nothing -> do
+      fallback <- chooseSarifLocation projectRoot
+      pure (fallback, MkRegion 1 1 1 1)
+
+findFirstPackageOccurrence
+  :: FilePath
+  -> [FilePath]
+  -> [Text]
+  -> IO (Maybe (FilePath, Region))
+findFirstPackageOccurrence _ [] _ = pure Nothing
+findFirstPackageOccurrence projectRoot (candidate : rest) packageNames = do
+  match <- findPackageOccurrenceInFile (projectRoot </> candidate) packageNames
+  case match of
+    Just region -> pure $ Just (candidate, region)
+    Nothing -> findFirstPackageOccurrence projectRoot rest packageNames
+
+findPackageOccurrenceInFile
+  :: FilePath
+  -> [Text]
+  -> IO (Maybe Region)
+findPackageOccurrenceInFile filePath packageNames = do
+  contents <- TIO.readFile filePath
+  pure $
+    firstJust
+      [ findPackageOccurrenceInLines (zip [1 ..] $ T.lines contents) packageName
+      | packageName <- packageNames
+      ]
+
+findPackageOccurrenceInLines
+  :: [(Int, Text)]
+  -> Text
+  -> Maybe Region
+findPackageOccurrenceInLines numberedLines packageName =
+  firstJust
+    [ mkRegionForMatch lineNo lineText packageName
+    | (lineNo, lineText) <- numberedLines
+    ]
+
+mkRegionForMatch
+  :: Int
+  -> Text
+  -> Text
+  -> Maybe Region
+mkRegionForMatch lineNo lineText packageName = do
+  column0 <- findPackageColumn lineText packageName
+  let startColumn = column0 + 1
+      endColumn = startColumn + T.length packageName
+  pure $ MkRegion lineNo startColumn lineNo endColumn
+
+findPackageColumn :: Text -> Text -> Maybe Int
+findPackageColumn lineText packageName =
+  T.unpack packageName
+    `findSubstringColumnIn` T.unpack lineText
+
+findSubstringColumnIn :: String -> String -> Maybe Int
+findSubstringColumnIn needle =
+  go 0
+ where
+  go _ [] = Nothing
+  go n rest
+    | needle `isPrefixOf` rest = Just n
+    | otherwise =
+        case rest of
+          (_ : xs) -> go (n + 1) xs
+
+firstJust :: [Maybe a] -> Maybe a
+firstJust [] = Nothing
+firstJust (x : xs) =
+  case x of
+    Just _ -> x
+    Nothing -> firstJust xs
 
 chooseSarifLocation :: FilePath -> IO FilePath
 chooseSarifLocation projectRoot = do

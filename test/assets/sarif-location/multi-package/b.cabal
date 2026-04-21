@@ -1,0 +1,13 @@
+cabal-version: 3.8
+name:          b
+version:       0.1.0.0
+build-type:    Simple
+
+library
+  hs-source-dirs:   src
+  exposed-modules:  B
+  build-depends:
+    , base
+    , process
+
+  default-language: Haskell2010

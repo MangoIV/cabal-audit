@@ -27,6 +27,7 @@ import Data.Functor ((<&>))
 import Data.Functor.Identity (Identity (runIdentity))
 import Data.List (nubBy)
 import Data.Map qualified as M
+import Data.Maybe (fromMaybe, listToMaybe)
 import Data.SARIF as Sarif
 import Data.String (IsString (fromString))
 import Data.Text (Text)
@@ -352,13 +353,10 @@ chooseSarifLocationForPackages
   -> [Text]
   -> IO (FilePath, Region)
 chooseSarifLocationForPackages projectRoot packageNames = do
-  existingCandidates <- existingCabalFiles projectRoot
-  found <- findFirstPackageOccurrence projectRoot existingCandidates packageNames
-  case found of
-    Just located -> pure located
-    Nothing -> do
-      fallback <- chooseSarifLocation projectRoot
-      pure (fallback, MkRegion 1 1 1 1)
+  candidates <- existingCabalFiles projectRoot
+  found <- findFirstPackageOccurrence projectRoot candidates packageNames
+  let fallbackFile = fromMaybe "." (listToMaybe candidates)
+  pure $ fromMaybe (fallbackFile, MkRegion 1 1 1 1) found
 
 existingCabalFiles :: FilePath -> IO [FilePath]
 existingCabalFiles projectRoot = do
@@ -442,14 +440,6 @@ findWholeTokenColumnIn needle haystack
 candidateStarts :: Text -> Text -> [Int]
 candidateStarts needle haystack =
   [0 .. T.length haystack - T.length needle]
-
-chooseSarifLocation :: FilePath -> IO FilePath
-chooseSarifLocation projectRoot = do
-  existingCandidates <- existingCabalFiles projectRoot
-  pure $
-    case existingCandidates of
-      fp : _ -> fp
-      [] -> "."
 
 hasTokenBoundaries :: Int -> Int -> Int -> Text -> Bool
 hasTokenBoundaries haystackLength start needleLength haystack =

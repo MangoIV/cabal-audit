@@ -322,8 +322,7 @@ ruleForAdvisory advisory =
             { mmsText =
                 "Haskell Security Advisory: "
                   <> advisory.advisorySummary
-                  <> ". Keywords: "
-                  <> T.intercalate ", " (coerce advisory.advisoryKeywords)
+                  <> keywordsSuffix
             , mmsMarkdown = Nothing
             }
     , rdHelpUri = Just (advisoryUrl advisory)
@@ -335,6 +334,11 @@ ruleForAdvisory advisory =
     }
  where
   ruleId = T.pack (printHsecId advisory.advisoryId)
+  keywords = T.intercalate ", " (coerce advisory.advisoryKeywords)
+  keywordsSuffix =
+    if T.null keywords
+      then ""
+      else ". Keywords: " <> keywords
 
 -- search in
 -- 1 cabal.project.freeze
@@ -468,7 +472,7 @@ chooseSarifLocation projectRoot = do
 
 hasTokenBoundaries :: Int -> String -> String -> Bool
 hasTokenBoundaries start needle haystack =
-  isLeftBoundary leftChar && isRightBoundary rightChar
+  isBoundary leftChar && isBoundary rightChar
  where
   leftChar =
     if start == 0
@@ -481,25 +485,17 @@ hasTokenBoundaries start needle haystack =
       then Nothing
       else Just (haystack !! rightIndex)
 
-isLeftBoundary :: Maybe Char -> Bool
-isLeftBoundary Nothing = True
-isLeftBoundary (Just c) = not (isPackageTokenChar c)
-
-isRightBoundary :: Maybe Char -> Bool
-isRightBoundary Nothing = True
-isRightBoundary (Just c) = not (isPackageTokenChar c)
+isBoundary :: Maybe Char -> Bool
+isBoundary Nothing = True
+isBoundary (Just c) = not (isPackageTokenChar c)
 
 isPackageTokenChar :: Char -> Bool
 isPackageTokenChar c =
   isAlphaNum c || c == '-' || c == '_'
 
 isCommentLine :: Text -> Bool
-isCommentLine lineText =
-  case T.dropWhile isHorizontalSpace lineText of
-    stripped -> "--" `T.isPrefixOf` stripped
-
-isHorizontalSpace :: Char -> Bool
-isHorizontalSpace c = c == ' ' || c == '\t'
+isCommentLine =
+  ("--" `T.isPrefixOf`) . T.stripStart
 
 data Segment = Segment
   { sConsoleColors :: [Text]

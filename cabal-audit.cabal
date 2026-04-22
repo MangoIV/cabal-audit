@@ -69,6 +69,7 @@ library
     Control.Effect.Pretty
     Distribution.Audit
     Security.Advisories.Cabal
+    Security.Advisories.SBom.Cabal
     Security.Advisories.SBom.CycloneDX
     Security.Advisories.SBom.Types
 
@@ -91,6 +92,7 @@ library
     , optparse-applicative
     , pretty
     , process
+    , purl                  >=0.1
     , sarif
     , temporary
     , text

@@ -89,6 +89,12 @@ dependency "process" at version 1.6.18.0 is vulnerable for:
 > [!Note]
 > If you encounter an error related to lock file incompatibility, consider upgrading your Nix version.
 
+## Using in Github action
+
+To scan for vulnerabilities and upload a [SARIF report for GitHub code scanning](https://docs.github.com/en/code-security/concepts/code-scanning/sarif-files), you can use [blackheaven/haskell-security-action](https://github.com/blackheaven/haskell-security-action). See its README for an example workflow.
+
+After running on main branch, results should appear in `Security and quality` -> `Code scanning`
+
 ## Implemented
 
 - query for vulnerable dependencies in cabal plan

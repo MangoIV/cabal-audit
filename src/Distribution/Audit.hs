@@ -27,7 +27,7 @@ import Data.Functor ((<&>))
 import Data.Functor.Identity (Identity (runIdentity))
 import Data.List (nubBy)
 import Data.Map qualified as M
-import Data.Maybe (fromMaybe, listToMaybe)
+import Data.Maybe (fromMaybe, listToMaybe, mapMaybe)
 import Data.SARIF as Sarif
 import Data.String (IsString (fromString))
 import Data.Text (Text)
@@ -368,7 +368,7 @@ findCabalFiles dir = do
   let freezeFile = "cabal.project.freeze"
       projectFile = "cabal.project"
   dirEntries <- listDirectory dir
-  let cabalFiles = filter (\f -> takeExtension f == ".cabal") dirEntries
+  let cabalFiles = filter ((== ".cabal") . takeExtension) dirEntries
   pure (freezeFile : projectFile : cabalFiles)
 
 findPackage
@@ -406,7 +406,7 @@ findPackageInLines numberedLines pkgName =
 
 -- consider use https://hackage-content.haskell.org/package/extra/docs/src/Data.List.Extra.html#firstJust
 findMap :: (a -> Maybe b) -> [a] -> Maybe b
-findMap f = foldr (\x acc -> f x <|> acc) Nothing
+findMap f = listToMaybe . mapMaybe f
 
 mkRegionForMatch
   :: Int
@@ -414,25 +414,21 @@ mkRegionForMatch
   -> Text
   -> Maybe Region
 mkRegionForMatch lineNo lineText pkgName = do
-  column0 <- findPackageColumn lineText pkgName
+  column0 <- findWholeTokenColumnIn pkgName lineText
   let startColumn = column0 + 1
       endColumn = startColumn + T.length pkgName
   pure $ MkRegion lineNo startColumn lineNo endColumn
-
-findPackageColumn :: Text -> Text -> Maybe Int
-findPackageColumn lineText pkgName =
-  findWholeTokenColumnIn pkgName lineText
 
 findWholeTokenColumnIn :: Text -> Text -> Maybe Int
 findWholeTokenColumnIn needle haystack
   | T.null needle = Nothing
   | T.length haystack < T.length needle = Nothing
-  | otherwise = asum (matchAt <$> candidateStarts needle haystack)
+  | otherwise = findMap findMatchStart (candidateStarts needle haystack)
  where
   needleLength = T.length needle
   haystackLength = T.length haystack
 
-  matchAt start
+  findMatchStart start
     | needle `T.isPrefixOf` T.drop start haystack
     , hasTokenBoundaries haystackLength start needleLength haystack =
         Just start

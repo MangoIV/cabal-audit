@@ -91,6 +91,7 @@ library
     , optparse-applicative
     , pretty
     , process
+    , purl                  >=0.1
     , sarif
     , temporary
     , text

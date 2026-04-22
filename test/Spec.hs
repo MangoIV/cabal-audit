@@ -39,7 +39,7 @@ spec = do
       file `shouldBe` "b.cabal"
       region `shouldBe` Sarif.MkRegion 11 7 11 14
 
-    it "falls back when no explicit package occurrence is found" $ do
+    it "falls back to first line of cabal when no package occurrence is found" $ do
       (file, region) <-
         chooseSarifLocationForPackages
           "test/assets/sarif-location/no-match"
@@ -55,7 +55,7 @@ spec = do
       file `shouldBe` "comment-before-real.cabal"
       region `shouldBe` Sarif.MkRegion 13 7 13 14
 
-    it "ignore substrin matches" $ do
+    it "ignore substring matches" $ do
       (file, region) <-
         chooseSarifLocationForPackages
           "test/assets/sarif-location/subsubstring"

@@ -279,8 +279,7 @@ sarifHandler mkHandle projectBaseContext packageAdvisories = do
                         , mmsMarkdown = Just $ fold $ prettyAdvisory advisory $ prettyMarkdown $ prettyMultiplePackages concernedInfo
                         }
                   , resultLocations =
-                      [ -- TODO(blackheaven) cabal files/lock?
-                        MkLocation $
+                      [ MkLocation $
                           Just $
                             MkPhysicalLocation
                               { physicalLocationArtifactLocation = MkArtifactLocation $ T.pack sarifLocation
@@ -290,7 +289,6 @@ sarifHandler mkHandle projectBaseContext packageAdvisories = do
                   , resultLevel = Just Sarif.Error
                   }
           , runArtifacts =
-              -- TODO(blackheaven) cabal files/lock?
               nubBy
                 (\a b -> artifactLocation a == artifactLocation b)
                 ( advisoriesWithLocations <&> \((_, _), (sarifLocation, _)) ->

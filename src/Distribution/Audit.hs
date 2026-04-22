@@ -25,7 +25,7 @@ import Data.Coerce (coerce)
 import Data.Foldable (fold, for_)
 import Data.Functor ((<&>))
 import Data.Functor.Identity (Identity (runIdentity))
-import Data.List (nubBy, sortOn)
+import Data.List (nubBy)
 import Data.Map qualified as M
 import Data.SARIF as Sarif
 import Data.String (IsString (fromString))
@@ -352,14 +352,18 @@ chooseSarifLocationForPackages
   -> [Text]
   -> IO (FilePath, Region)
 chooseSarifLocationForPackages projectRoot packageNames = do
-  candidateFiles <- findCabalFiles projectRoot
-  existingCandidates <- filterM (doesFileExist . (projectRoot </>)) candidateFiles
+  existingCandidates <- existingCabalFiles projectRoot
   found <- findFirstPackageOccurrence projectRoot existingCandidates packageNames
   case found of
     Just located -> pure located
     Nothing -> do
       fallback <- chooseSarifLocation projectRoot
       pure (fallback, MkRegion 1 1 1 1)
+
+existingCabalFiles :: FilePath -> IO [FilePath]
+existingCabalFiles projectRoot = do
+  candidateFiles <- findCabalFiles projectRoot
+  filterM (doesFileExist . (projectRoot </>)) candidateFiles
 
 findCabalFiles :: FilePath -> IO [FilePath]
 findCabalFiles projectRoot = do
@@ -388,7 +392,7 @@ findPackageOccurrenceInFile
 findPackageOccurrenceInFile filePath packageNames = do
   contents <- TIO.readFile filePath
   pure $
-    firstJust
+    asum
       [ findPackageOccurrenceInLines (zip [1 ..] $ T.lines contents) packageName
       | packageName <- packageNames
       ]
@@ -398,7 +402,7 @@ findPackageOccurrenceInLines
   -> Text
   -> Maybe Region
 findPackageOccurrenceInLines numberedLines packageName =
-  firstJust
+  asum
     [ mkRegionForMatch lineNo lineText packageName
     | (lineNo, lineText) <- numberedLines
     , not (isCommentLine lineText)
@@ -439,37 +443,13 @@ candidateStarts :: Text -> Text -> [Int]
 candidateStarts needle haystack =
   [0 .. T.length haystack - T.length needle]
 
-firstJust :: [Maybe a] -> Maybe a
-firstJust [] = Nothing
-firstJust (x : xs) =
-  case x of
-    Just _ -> x
-    Nothing -> firstJust xs
-
 chooseSarifLocation :: FilePath -> IO FilePath
 chooseSarifLocation projectRoot = do
-  let freezeFile = projectRoot </> "cabal.project.freeze"
-      projectFile = projectRoot </> "cabal.project"
-
-  freezeExists <- doesFileExist freezeFile
-  if freezeExists
-    then pure "cabal.project.freeze"
-    else do
-      projectExists <- doesFileExist projectFile
-      if projectExists
-        then pure "cabal.project"
-        else do
-          entries <- listDirectory projectRoot
-          let cabalFiles =
-                sortOn
-                  id
-                  [ e
-                  | e <- entries
-                  , takeExtension e == ".cabal"
-                  ]
-          pure $ case cabalFiles of
-            fp : _ -> fp
-            [] -> "."
+  existingCandidates <- existingCabalFiles projectRoot
+  pure $
+    case existingCandidates of
+      fp : _ -> fp
+      [] -> "."
 
 hasTokenBoundaries :: Int -> Int -> Int -> Text -> Bool
 hasTokenBoundaries haystackLength start needleLength haystack =

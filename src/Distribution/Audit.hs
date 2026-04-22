@@ -25,7 +25,7 @@ import Data.Coerce (coerce)
 import Data.Foldable (fold, for_)
 import Data.Functor ((<&>))
 import Data.Functor.Identity (Identity (runIdentity))
-import Data.List (isPrefixOf, nubBy, sortOn)
+import Data.List (nubBy, sortOn)
 import Data.Map qualified as M
 import Data.SARIF as Sarif
 import Data.String (IsString (fromString))
@@ -352,28 +352,22 @@ chooseSarifLocationForPackages
   -> [Text]
   -> IO (FilePath, Region)
 chooseSarifLocationForPackages projectRoot packageNames = do
-  let freezeFile = "cabal.project.freeze"
-      projectFile = "cabal.project"
-
-  rootEntries <- listDirectory projectRoot
-  let cabalFiles =
-        [ entry
-        | entry <- rootEntries
-        , takeExtension entry == ".cabal"
-        ]
-
-      candidateFiles =
-        [freezeFile, projectFile] <> cabalFiles
-
+  candidateFiles <- findCabalFiles projectRoot
   existingCandidates <- filterM (doesFileExist . (projectRoot </>)) candidateFiles
-
   found <- findFirstPackageOccurrence projectRoot existingCandidates packageNames
-
   case found of
     Just located -> pure located
     Nothing -> do
       fallback <- chooseSarifLocation projectRoot
       pure (fallback, MkRegion 1 1 1 1)
+
+findCabalFiles :: FilePath -> IO [FilePath]
+findCabalFiles projectRoot = do
+  let freezeFile = "cabal.project.freeze"
+      projectFile = "cabal.project"
+  rootEntries <- listDirectory projectRoot
+  let cabalFiles = filter (\file -> takeExtension file == ".cabal") rootEntries
+  pure (freezeFile : projectFile : cabalFiles)
 
 findFirstPackageOccurrence
   :: FilePath
@@ -423,20 +417,27 @@ mkRegionForMatch lineNo lineText packageName = do
 
 findPackageColumn :: Text -> Text -> Maybe Int
 findPackageColumn lineText packageName =
-  findWholeTokenColumnIn (T.unpack packageName) (T.unpack lineText)
+  findWholeTokenColumnIn packageName lineText
 
-findWholeTokenColumnIn :: String -> String -> Maybe Int
-findWholeTokenColumnIn needle haystack =
-  go 0 haystack
+findWholeTokenColumnIn :: Text -> Text -> Maybe Int
+findWholeTokenColumnIn needle haystack
+  | T.null needle = Nothing
+  | T.length haystack < T.length needle = Nothing
+  | otherwise = asum (matchAt <$> candidateStarts needle haystack)
  where
-  go _ [] = Nothing
-  go n rest
-    | needle `isPrefixOf` rest
-    , hasTokenBoundaries n needle haystack =
-        Just n
+  needleLength = T.length needle
+  haystackLength = T.length haystack
+
+  matchAt start
+    | needle `T.isPrefixOf` T.drop start haystack
+    , hasTokenBoundaries haystackLength start needleLength haystack =
+        Just start
     | otherwise =
-        case rest of
-          _ : xs -> go (n + 1) xs
+        Nothing
+
+candidateStarts :: Text -> Text -> [Int]
+candidateStarts needle haystack =
+  [0 .. T.length haystack - T.length needle]
 
 firstJust :: [Maybe a] -> Maybe a
 firstJust [] = Nothing
@@ -470,32 +471,30 @@ chooseSarifLocation projectRoot = do
             fp : _ -> fp
             [] -> "."
 
-hasTokenBoundaries :: Int -> String -> String -> Bool
-hasTokenBoundaries start needle haystack =
+hasTokenBoundaries :: Int -> Int -> Int -> Text -> Bool
+hasTokenBoundaries haystackLength start needleLength haystack =
   isBoundary leftChar && isBoundary rightChar
  where
   leftChar =
     if start == 0
       then Nothing
-      else Just (haystack !! (start - 1))
+      else Just (T.index haystack (start - 1))
 
-  rightIndex = start + length needle
+  rightIndex = start + needleLength
   rightChar =
-    if rightIndex >= length haystack
+    if rightIndex >= haystackLength
       then Nothing
-      else Just (haystack !! rightIndex)
+      else Just (T.index haystack rightIndex)
 
 isBoundary :: Maybe Char -> Bool
 isBoundary Nothing = True
 isBoundary (Just c) = not (isPackageTokenChar c)
 
 isPackageTokenChar :: Char -> Bool
-isPackageTokenChar c =
-  isAlphaNum c || c == '-' || c == '_'
+isPackageTokenChar c = isAlphaNum c || c == '-' || c == '_'
 
 isCommentLine :: Text -> Bool
-isCommentLine =
-  ("--" `T.isPrefixOf`) . T.stripStart
+isCommentLine = ("--" `T.isPrefixOf`) . T.stripStart
 
 data Segment = Segment
   { sConsoleColors :: [Text]

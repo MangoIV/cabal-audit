@@ -39,6 +39,3 @@ source-repository-package
   tag: eb0b808c0a1fe3a57e9407dd6b91bcb1c8411345
 
 test-show-details: direct
-
-allow-newer:
-  , fused-effects:base

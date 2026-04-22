@@ -78,7 +78,6 @@ library
     , bytestring
     , Cabal
     , cabal-install
-    , chronos
     , colourista
     , containers
     , filepath
@@ -94,6 +93,7 @@ library
     , sarif
     , temporary
     , text
+    , time
     , transformers
     , unliftio
     , uuid

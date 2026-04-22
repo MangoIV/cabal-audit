@@ -41,5 +41,4 @@ source-repository-package
 test-show-details: direct
 
 allow-newer:
-  fused-effects:base
-  bytebuild:base
+  , fused-effects:base

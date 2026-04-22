@@ -46,3 +46,19 @@ spec = do
           ["cryptonite"]
       file `shouldBe` "transitive-only.cabal"
       region `shouldBe` Sarif.MkRegion 1 1 1 1
+
+    it "ignore occurences in comments" $ do
+      (file, region) <-
+        chooseSarifLocationForPackages
+          "test/assets/sarif-location/comment-before-real"
+          ["process"]
+      file `shouldBe` "comment-before-real.cabal"
+      region `shouldBe` Sarif.MkRegion 13 7 13 14
+
+    it "ignore substrin matches" $ do
+      (file, region) <-
+        chooseSarifLocationForPackages
+          "test/assets/sarif-location/subsubstring"
+          ["process"]
+      file `shouldBe` "subsubstring.cabal"
+      region `shouldBe` Sarif.MkRegion 12 7 12 14

@@ -20,6 +20,7 @@ import Control.Monad.Codensity (Codensity (Codensity, runCodensity))
 import Data.Aeson (KeyValue ((.=)), Value, object)
 import Data.Aeson qualified as Aeson
 import Data.ByteString.Lazy qualified as BSL
+import Data.Char (isAlphaNum)
 import Data.Coerce (coerce)
 import Data.Foldable (fold, for_)
 import Data.Functor ((<&>))
@@ -404,6 +405,7 @@ findPackageOccurrenceInLines numberedLines packageName =
   firstJust
     [ mkRegionForMatch lineNo lineText packageName
     | (lineNo, lineText) <- numberedLines
+    , not (isCommentLine lineText)
     ]
 
 mkRegionForMatch
@@ -419,19 +421,20 @@ mkRegionForMatch lineNo lineText packageName = do
 
 findPackageColumn :: Text -> Text -> Maybe Int
 findPackageColumn lineText packageName =
-  T.unpack packageName
-    `findSubstringColumnIn` T.unpack lineText
+  findWholeTokenColumnIn (T.unpack packageName) (T.unpack lineText)
 
-findSubstringColumnIn :: String -> String -> Maybe Int
-findSubstringColumnIn needle =
-  go 0
+findWholeTokenColumnIn :: String -> String -> Maybe Int
+findWholeTokenColumnIn needle haystack =
+  go 0 haystack
  where
   go _ [] = Nothing
   go n rest
-    | needle `isPrefixOf` rest = Just n
+    | needle `isPrefixOf` rest
+    , hasTokenBoundaries n needle haystack =
+        Just n
     | otherwise =
         case rest of
-          (_ : xs) -> go (n + 1) xs
+          _ : xs -> go (n + 1) xs
 
 firstJust :: [Maybe a] -> Maybe a
 firstJust [] = Nothing
@@ -464,6 +467,41 @@ chooseSarifLocation projectRoot = do
           pure $ case cabalFiles of
             fp : _ -> fp
             [] -> "."
+
+hasTokenBoundaries :: Int -> String -> String -> Bool
+hasTokenBoundaries start needle haystack =
+  isLeftBoundary leftChar && isRightBoundary rightChar
+ where
+  leftChar =
+    if start == 0
+      then Nothing
+      else Just (haystack !! (start - 1))
+
+  rightIndex = start + length needle
+  rightChar =
+    if rightIndex >= length haystack
+      then Nothing
+      else Just (haystack !! rightIndex)
+
+isLeftBoundary :: Maybe Char -> Bool
+isLeftBoundary Nothing = True
+isLeftBoundary (Just c) = not (isPackageTokenChar c)
+
+isRightBoundary :: Maybe Char -> Bool
+isRightBoundary Nothing = True
+isRightBoundary (Just c) = not (isPackageTokenChar c)
+
+isPackageTokenChar :: Char -> Bool
+isPackageTokenChar c =
+  isAlphaNum c || c == '-' || c == '_'
+
+isCommentLine :: Text -> Bool
+isCommentLine lineText =
+  case T.dropWhile isHorizontalSpace lineText of
+    stripped -> "--" `T.isPrefixOf` stripped
+
+isHorizontalSpace :: Char -> Bool
+isHorizontalSpace c = c == ' ' || c == '\t'
 
 data Segment = Segment
   { sConsoleColors :: [Text]

@@ -353,73 +353,75 @@ chooseSarifLocationForPackages
   -> [Text]
   -> IO (FilePath, Region)
 chooseSarifLocationForPackages projectRoot packageNames = do
-  candidates <- existingCabalFiles projectRoot
-  found <- findFirstPackageOccurrence projectRoot candidates packageNames
+  candidates <- existingProjectFiles projectRoot
+  found <- findPackage projectRoot candidates packageNames
   let fallbackFile = fromMaybe "." (listToMaybe candidates)
   pure $ fromMaybe (fallbackFile, MkRegion 1 1 1 1) found
 
-existingCabalFiles :: FilePath -> IO [FilePath]
-existingCabalFiles projectRoot = do
+existingProjectFiles :: FilePath -> IO [FilePath]
+existingProjectFiles projectRoot = do
   candidateFiles <- findCabalFiles projectRoot
   filterM (doesFileExist . (projectRoot </>)) candidateFiles
 
 findCabalFiles :: FilePath -> IO [FilePath]
-findCabalFiles projectRoot = do
+findCabalFiles dir = do
   let freezeFile = "cabal.project.freeze"
       projectFile = "cabal.project"
-  rootEntries <- listDirectory projectRoot
-  let cabalFiles = filter (\file -> takeExtension file == ".cabal") rootEntries
+  dirEntries <- listDirectory dir
+  let cabalFiles = filter (\f -> takeExtension f == ".cabal") dirEntries
   pure (freezeFile : projectFile : cabalFiles)
 
-findFirstPackageOccurrence
+findPackage
   :: FilePath
   -> [FilePath]
   -> [Text]
   -> IO (Maybe (FilePath, Region))
-findFirstPackageOccurrence _ [] _ = pure Nothing
-findFirstPackageOccurrence projectRoot (candidate : rest) packageNames = do
-  match <- findPackageOccurrenceInFile (projectRoot </> candidate) packageNames
+findPackage _ [] _ = pure Nothing
+findPackage projectRoot (candidate : rest) pkgNames = do
+  match <- findPackageInFile (projectRoot </> candidate) pkgNames
   case match of
     Just region -> pure $ Just (candidate, region)
-    Nothing -> findFirstPackageOccurrence projectRoot rest packageNames
+    Nothing -> findPackage projectRoot rest pkgNames
 
-findPackageOccurrenceInFile
+findPackageInFile
   :: FilePath
   -> [Text]
   -> IO (Maybe Region)
-findPackageOccurrenceInFile filePath packageNames = do
+findPackageInFile filePath pkgNames = do
   contents <- TIO.readFile filePath
+  let numberedLines = zip [1 ..] (T.lines contents)
   pure $
-    asum
-      [ findPackageOccurrenceInLines (zip [1 ..] $ T.lines contents) packageName
-      | packageName <- packageNames
-      ]
+    findMap (findPackageInLines numberedLines) pkgNames
 
-findPackageOccurrenceInLines
+findPackageInLines
   :: [(Int, Text)]
   -> Text
   -> Maybe Region
-findPackageOccurrenceInLines numberedLines packageName =
-  asum
-    [ mkRegionForMatch lineNo lineText packageName
-    | (lineNo, lineText) <- numberedLines
-    , not (isCommentLine lineText)
-    ]
+findPackageInLines numberedLines pkgName =
+  findMap match numberedLines
+ where
+  match (lineNo, lineText)
+    | isCommentLine lineText = Nothing
+    | otherwise = mkRegionForMatch lineNo lineText pkgName
+
+-- consider use https://hackage-content.haskell.org/package/extra/docs/src/Data.List.Extra.html#firstJust
+findMap :: (a -> Maybe b) -> [a] -> Maybe b
+findMap f = foldr (\x acc -> f x <|> acc) Nothing
 
 mkRegionForMatch
   :: Int
   -> Text
   -> Text
   -> Maybe Region
-mkRegionForMatch lineNo lineText packageName = do
-  column0 <- findPackageColumn lineText packageName
+mkRegionForMatch lineNo lineText pkgName = do
+  column0 <- findPackageColumn lineText pkgName
   let startColumn = column0 + 1
-      endColumn = startColumn + T.length packageName
+      endColumn = startColumn + T.length pkgName
   pure $ MkRegion lineNo startColumn lineNo endColumn
 
 findPackageColumn :: Text -> Text -> Maybe Int
-findPackageColumn lineText packageName =
-  findWholeTokenColumnIn packageName lineText
+findPackageColumn lineText pkgName =
+  findWholeTokenColumnIn pkgName lineText
 
 findWholeTokenColumnIn :: Text -> Text -> Maybe Int
 findWholeTokenColumnIn needle haystack

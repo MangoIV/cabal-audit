@@ -332,6 +332,18 @@ ruleForAdvisory advisory =
           defaultReportingConfiguration
             { rcLevel = Just Sarif.Error
             }
+    , rdProperties =
+        M.fromList
+          [
+            ( "tags"
+            , Aeson.toJSON
+                ( [ "security"
+                  , "external/hsec/" <> ruleId
+                  ]
+                    :: [Text]
+                )
+            )
+          ]
     }
  where
   ruleId = T.pack (printHsecId advisory.advisoryId)

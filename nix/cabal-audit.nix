@@ -8,6 +8,7 @@
   chronos,
   colourista,
   containers,
+  directory,
   filepath,
   fused-effects,
   hsec-core,
@@ -44,6 +45,7 @@ mkDerivation {
     chronos
     colourista
     containers
+    directory
     filepath
     fused-effects
     hsec-core
@@ -64,7 +66,7 @@ mkDerivation {
     vector
   ];
   executableHaskellDepends = [base];
-  testHaskellDepends = [base hspec];
+  testHaskellDepends = [base hspec sarif];
   description = "Checking a cabal project for security advisories";
   license = lib.licenses.bsd3;
   mainProgram = "cabal-audit";

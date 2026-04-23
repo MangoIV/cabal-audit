@@ -8,27 +8,32 @@
 --    database
 -- 3. summarise the found vulnerabilities as a humand readable or
 --    otherwise formatted output
-module Distribution.Audit (auditMain, buildAdvisories, AuditConfig (..), AuditException (..)) where
+module Distribution.Audit (auditMain, buildAdvisories, chooseSarifLocationForPackages, AuditConfig (..), AuditException (..)) where
 
 import Colourista.Pure (blue, bold, formatWith, green, red, yellow)
 import Control.Algebra (Has)
 import Control.Carrier.Lift (runM)
 import Control.Effect.Pretty (Pretty, PrettyC, pretty, prettyStdErr, runPretty)
 import Control.Exception (Exception (displayException), SomeException (SomeException))
-import Control.Monad (when)
+import Control.Monad (filterM, forM, when)
 import Control.Monad.Codensity (Codensity (Codensity, runCodensity))
 import Data.Aeson (KeyValue ((.=)), Value, object)
 import Data.Aeson qualified as Aeson
 import Data.ByteString.Lazy qualified as BSL
+import Data.Char (isAlphaNum)
 import Data.Coerce (coerce)
 import Data.Foldable (fold, for_)
 import Data.Functor ((<&>))
 import Data.Functor.Identity (Identity (runIdentity))
+import Data.List (nubBy)
 import Data.Map qualified as M
+import Data.Maybe (fromMaybe, listToMaybe, mapMaybe)
 import Data.SARIF as Sarif
+import Data.Set qualified as S
 import Data.String (IsString (fromString))
 import Data.Text (Text)
 import Data.Text qualified as T
+import Data.Text.IO qualified as TIO
 import Data.Vector (Vector)
 import Data.Vector qualified as V
 import Distribution.Client.DistDirLayout (DistDirLayout (distProjectRootDirectory))
@@ -49,7 +54,7 @@ import Distribution.Verbosity qualified as Verbosity
 import Distribution.Version (Version)
 import GHC.Generics (Generic)
 import Options.Applicative
-import Security.Advisories (Advisory (..), Keyword (..), ParseAdvisoryError (..), ghcComponentToText, printHsecId)
+import Security.Advisories (Advisory (..), CWE (..), Keyword (..), ParseAdvisoryError (..), ghcComponentToText, printHsecId)
 import Security.Advisories.Cabal
   ( AuditedComponent (..)
   , ElaboratedPackageInfoAdvised
@@ -60,7 +65,9 @@ import Security.Advisories.Convert.OSV qualified as OSV
 import Security.Advisories.Filesystem (listAdvisories)
 import Security.Advisories.SBom.Types (prettyVersion)
 import Security.Advisories.Sync qualified as Sync
+import System.Directory (doesFileExist, listDirectory)
 import System.Exit (exitFailure)
+import System.FilePath (takeExtension, (</>))
 import System.IO (Handle, IOMode (WriteMode), stdout, withFile)
 import UnliftIO (MonadIO (..), MonadUnliftIO (..), catch, throwIO, withSystemTempDirectory)
 import Validation (validation)
@@ -238,6 +245,15 @@ sarifHandler mkHandle projectBaseContext packageAdvisories = do
             packageAdvisories >>= \(pkgName, pkgInfo) ->
               runIdentity pkgInfo.packageAdvisories <&> \(advisory, fixedAt) ->
                 (advisory.advisoryId, (advisory, [(renderAuditedComponent pkgName, fixedAt)]))
+  advisoryLocations <- forM advisories $ \(_, concernedInfo) ->
+    liftIO $
+      chooseSarifLocationForPackages
+        projectRoot
+        (fst <$> concernedInfo)
+  let advisoriesWithLocations = zip advisories advisoryLocations
+  let rules =
+        nubBy (\a b -> rdId a == rdId b) $
+          map (ruleForAdvisory . fst) advisories
       run =
         MkRun
           { runTool =
@@ -251,10 +267,12 @@ sarifHandler mkHandle projectBaseContext packageAdvisories = do
                         [ tool "hsec-tools" VERSION_hsec_tools
                         , tool "ghc" $ T.pack __GLASGOW_HASKELL_FULL_VERSION__
                         ]
-                    , toolDriver = tool "cabal-audit" VERSION_cabal_audit
+                    , toolDriver =
+                        let toolCabalAudit = tool "cabal-audit" VERSION_cabal_audit
+                         in toolCabalAudit {toolComponentRules = rules}
                     }
           , runResults =
-              advisories <&> \(advisory, concernedInfo) ->
+              advisoriesWithLocations <&> \((advisory, concernedInfo), (sarifLocation, sarifRegion)) ->
                 MkResult
                   { resultRuleId = T.pack $ printHsecId advisory.advisoryId
                   , resultMessage =
@@ -263,26 +281,218 @@ sarifHandler mkHandle projectBaseContext packageAdvisories = do
                         , mmsMarkdown = Just $ fold $ prettyAdvisory advisory $ prettyMarkdown $ prettyMultiplePackages concernedInfo
                         }
                   , resultLocations =
-                      [ -- TODO(blackheaven) cabal files/lock?
-                        MkLocation $
+                      [ MkLocation $
                           Just $
                             MkPhysicalLocation
-                              { physicalLocationArtifactLocation = MkArtifactLocation $ T.pack ("file:///" <> projectRoot)
-                              , physicalLocationRegion = MkRegion 1 1 2 2 -- TODO(blackheaven): inspect lock file to find exact position
+                              { physicalLocationArtifactLocation = MkArtifactLocation $ T.pack sarifLocation
+                              , physicalLocationRegion = sarifRegion -- TODO(blackheaven): inspect lock file to find exact position
                               }
                       ]
                   , resultLevel = Just Sarif.Error
                   }
           , runArtifacts =
-              [ -- TODO(blackheaven) cabal files/lock?
-                MkArtifact
-                  { artifactLocation = MkArtifactLocation $ T.pack ("file:///" <> projectRoot)
-                  , artifactMimeType = Nothing
-                  }
-              ]
+              nubBy
+                (\a b -> artifactLocation a == artifactLocation b)
+                ( advisoriesWithLocations <&> \((_, _), (sarifLocation, _)) ->
+                    MkArtifact
+                      { artifactLocation = MkArtifactLocation $ T.pack sarifLocation
+                      , artifactMimeType = Nothing
+                      }
+                )
           }
   withRunCodensityInIO mkHandle \hdl ->
     liftIO . BSL.hPutStr hdl . Aeson.encode $ defaultLog {logRuns = [run]}
+
+advisoryUrl :: Advisory -> Text
+advisoryUrl advisory =
+  "https://haskell.github.io/security-advisories/advisory/"
+    <> T.pack (printHsecId advisory.advisoryId)
+
+ruleForAdvisory :: Advisory -> ReportingDescriptor
+ruleForAdvisory advisory =
+  (defaultReportingDescriptor ruleId)
+    { rdName = Just ruleId
+    , rdShortDescription =
+        Just $
+          MkMultiformatMessageString
+            { mmsText = advisory.advisorySummary
+            , mmsMarkdown = Nothing
+            }
+    , rdFullDescription =
+        Just $
+          MkMultiformatMessageString
+            { mmsText =
+                "Haskell Security Advisory: "
+                  <> advisory.advisorySummary
+                  <> keywordsSuffix
+            , mmsMarkdown = Nothing
+            }
+    , rdHelpUri = Just (advisoryUrl advisory)
+    , rdDefaultConfiguration =
+        Just
+          defaultReportingConfiguration
+            { rcLevel = Just Sarif.Error
+            }
+    , rdProperties =
+        M.fromList
+          [
+            ( "tags"
+            , Aeson.toJSON (ruleTags advisory)
+            )
+          ]
+    }
+ where
+  ruleId = T.pack (printHsecId advisory.advisoryId)
+  keywords = T.intercalate ", " (coerce advisory.advisoryKeywords)
+  keywordsSuffix =
+    if T.null keywords
+      then ""
+      else ". Keywords: " <> keywords
+
+ruleTags :: Advisory -> [Text]
+ruleTags advisory =
+  S.toList . S.fromList $
+    [ "security"
+    , "external/hsec/" <> ruleId
+    ]
+      <> cveTags
+      <> cweTags
+ where
+  ruleId = T.pack (printHsecId advisory.advisoryId)
+
+  cveTags =
+    [ T.pack "external/cve/" <> T.toLower alias
+    | alias <- advisory.advisoryAliases
+    , "CVE-" `T.isPrefixOf` T.toUpper alias
+    ]
+
+  cweTags =
+    [ "external/cwe/CWE-" <> T.pack (show cwe)
+    | CWE {unCWE = cwe} <- advisory.advisoryCWEs
+    ]
+
+-- search in
+-- 1 cabal.project.freeze
+-- 2 cabal.project
+-- 3 root .cabal file
+-- For each candidate file, look for the first affected package name
+-- if found, return that file and an exact-ish MkRegion
+-- otherwise returs - Region 1:1
+chooseSarifLocationForPackages
+  :: FilePath
+  -> [Text]
+  -> IO (FilePath, Region)
+chooseSarifLocationForPackages projectRoot packageNames = do
+  candidates <- existingProjectFiles projectRoot
+  found <- findPackage projectRoot candidates packageNames
+  let fallbackFile = fromMaybe "." (listToMaybe candidates)
+  pure $ fromMaybe (fallbackFile, MkRegion 1 1 1 1) found
+
+existingProjectFiles :: FilePath -> IO [FilePath]
+existingProjectFiles projectRoot = do
+  candidateFiles <- findCabalFiles projectRoot
+  filterM (doesFileExist . (projectRoot </>)) candidateFiles
+
+findCabalFiles :: FilePath -> IO [FilePath]
+findCabalFiles dir = do
+  let freezeFile = "cabal.project.freeze"
+      projectFile = "cabal.project"
+  dirEntries <- listDirectory dir
+  let cabalFiles = filter ((== ".cabal") . takeExtension) dirEntries
+  pure (freezeFile : projectFile : cabalFiles)
+
+findPackage
+  :: FilePath
+  -> [FilePath]
+  -> [Text]
+  -> IO (Maybe (FilePath, Region))
+findPackage _ [] _ = pure Nothing
+findPackage projectRoot (candidate : rest) pkgNames = do
+  match <- findPackageInFile (projectRoot </> candidate) pkgNames
+  case match of
+    Just region -> pure $ Just (candidate, region)
+    Nothing -> findPackage projectRoot rest pkgNames
+
+findPackageInFile
+  :: FilePath
+  -> [Text]
+  -> IO (Maybe Region)
+findPackageInFile filePath pkgNames = do
+  contents <- TIO.readFile filePath
+  let numberedLines = zip [1 ..] (T.lines contents)
+  pure $
+    findMap (findPackageInLines numberedLines) pkgNames
+
+findPackageInLines
+  :: [(Int, Text)]
+  -> Text
+  -> Maybe Region
+findPackageInLines numberedLines pkgName =
+  findMap match numberedLines
+ where
+  match (lineNo, lineText)
+    | isCommentLine lineText = Nothing
+    | otherwise = mkRegionForMatch lineNo lineText pkgName
+
+-- consider use https://hackage-content.haskell.org/package/extra/docs/src/Data.List.Extra.html#firstJust
+findMap :: (a -> Maybe b) -> [a] -> Maybe b
+findMap f = listToMaybe . mapMaybe f
+
+mkRegionForMatch
+  :: Int
+  -> Text
+  -> Text
+  -> Maybe Region
+mkRegionForMatch lineNo lineText pkgName = do
+  column0 <- findWholeTokenColumnIn pkgName lineText
+  let startColumn = column0 + 1
+      endColumn = startColumn + T.length pkgName
+  pure $ MkRegion lineNo startColumn lineNo endColumn
+
+findWholeTokenColumnIn :: Text -> Text -> Maybe Int
+findWholeTokenColumnIn needle haystack
+  | T.null needle = Nothing
+  | T.length haystack < T.length needle = Nothing
+  | otherwise = findMap findMatchStart (candidateStarts needle haystack)
+ where
+  needleLength = T.length needle
+  haystackLength = T.length haystack
+
+  findMatchStart start
+    | needle `T.isPrefixOf` T.drop start haystack
+    , hasTokenBoundaries haystackLength start needleLength haystack =
+        Just start
+    | otherwise =
+        Nothing
+
+candidateStarts :: Text -> Text -> [Int]
+candidateStarts needle haystack =
+  [0 .. T.length haystack - T.length needle]
+
+hasTokenBoundaries :: Int -> Int -> Int -> Text -> Bool
+hasTokenBoundaries haystackLength start needleLength haystack =
+  isBoundary leftChar && isBoundary rightChar
+ where
+  leftChar =
+    if start == 0
+      then Nothing
+      else Just (T.index haystack (start - 1))
+
+  rightIndex = start + needleLength
+  rightChar =
+    if rightIndex >= haystackLength
+      then Nothing
+      else Just (T.index haystack rightIndex)
+
+isBoundary :: Maybe Char -> Bool
+isBoundary Nothing = True
+isBoundary (Just c) = not (isPackageTokenChar c)
+
+isPackageTokenChar :: Char -> Bool
+isPackageTokenChar c = isAlphaNum c || c == '-' || c == '_'
+
+isCommentLine :: Text -> Bool
+isCommentLine = ("--" `T.isPrefixOf`) . T.stripStart
 
 data Segment = Segment
   { sConsoleColors :: [Text]

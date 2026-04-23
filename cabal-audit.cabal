@@ -81,6 +81,7 @@ library
     , chronos
     , colourista
     , containers
+    , directory
     , filepath
     , fused-effects
     , hsec-core
@@ -124,5 +125,6 @@ test-suite spec
     , base         <5
     , cabal-audit
     , hspec
+    , sarif
 
   default-language: Haskell2010

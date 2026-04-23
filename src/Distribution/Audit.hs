@@ -29,6 +29,7 @@ import Data.List (nubBy)
 import Data.Map qualified as M
 import Data.Maybe (fromMaybe, listToMaybe, mapMaybe)
 import Data.SARIF as Sarif
+import Data.Set qualified as S
 import Data.String (IsString (fromString))
 import Data.Text (Text)
 import Data.Text qualified as T
@@ -53,7 +54,7 @@ import Distribution.Verbosity qualified as Verbosity
 import Distribution.Version (Version)
 import GHC.Generics (Generic)
 import Options.Applicative
-import Security.Advisories (Advisory (..), Keyword (..), ParseAdvisoryError (..), ghcComponentToText, printHsecId)
+import Security.Advisories (Advisory (..), CWE (..), Keyword (..), ParseAdvisoryError (..), ghcComponentToText, printHsecId)
 import Security.Advisories.Cabal
   ( AuditedComponent (..)
   , ElaboratedPackageInfoAdvised
@@ -336,12 +337,7 @@ ruleForAdvisory advisory =
         M.fromList
           [
             ( "tags"
-            , Aeson.toJSON
-                ( [ "security"
-                  , "external/hsec/" <> ruleId
-                  ]
-                    :: [Text]
-                )
+            , Aeson.toJSON (ruleTags advisory)
             )
           ]
     }
@@ -352,6 +348,28 @@ ruleForAdvisory advisory =
     if T.null keywords
       then ""
       else ". Keywords: " <> keywords
+
+ruleTags :: Advisory -> [Text]
+ruleTags advisory =
+  S.toList . S.fromList $
+    [ "security"
+    , "external/hsec/" <> ruleId
+    ]
+      <> cveTags
+      <> cweTags
+ where
+  ruleId = T.pack (printHsecId advisory.advisoryId)
+
+  cveTags =
+    [ T.pack "external/cve/" <> T.toLower alias
+    | alias <- advisory.advisoryAliases
+    , "CVE-" `T.isPrefixOf` T.toUpper alias
+    ]
+
+  cweTags =
+    [ "external/cwe/CWE-" <> T.pack (show cwe)
+    | CWE {unCWE = cwe} <- advisory.advisoryCWEs
+    ]
 
 -- search in
 -- 1 cabal.project.freeze

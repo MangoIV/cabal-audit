@@ -20,6 +20,7 @@
   optparse-applicative,
   pretty,
   process,
+  purl,
   sarif,
   temporary,
   text,
@@ -54,6 +55,7 @@ mkDerivation {
     optparse-applicative
     pretty
     process
+    purl
     sarif
     temporary
     text

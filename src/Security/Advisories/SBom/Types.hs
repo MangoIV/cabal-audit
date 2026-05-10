@@ -1,9 +1,30 @@
 {-# LANGUAGE StrictData #-}
 
-module Security.Advisories.SBom.Types (SBomMeta (..), ComponentType (..), prettyComponentType, prettyVersion, prettyLicense, mkPurl, mkBomRef) where
+module Security.Advisories.SBom.Types
+  ( SBomMeta (..)
+  , ComponentType (..)
+  , prettyComponentType
+  , prettyVersion
+  , prettyLicense
+  , mkBomRef
+  -- Data.Purl re-exports
+  , Purl (..)
+  , PurlType (..)
+  , PurlName (..)
+  , PurlVersion (..)
+  , PurlNamespace (..)
+  , purlText
+  , newPurlHackage
+  , newPurlOther
+  -- Purl construction helpers
+  , mkHackagePurl
+  , mkPurlWithRepo
+  )
+where
 
 import Data.List qualified as List
 import Data.Maybe (fromMaybe)
+import Data.Purl
 import Data.String (IsString (fromString))
 import Data.Text (Text)
 import Data.Text qualified as T
@@ -46,10 +67,12 @@ data SBomMeta = MKSBomMeta
   -- ^ the component's license
   , sbom'supplierName :: Maybe Text
   -- ^ the name of the supplier if present, e.g. github/haskell
+  , sbom'componentPurl :: Purl
+  -- ^ the purl of the component
   , sbom'componentDependencies :: Vector ComponentDependency
   -- ^ all the dependencies of a component
   }
-  deriving stock (Eq, Ord, Show, Generic)
+  deriving stock (Eq, Show, Generic)
 
 data ComponentDependency = MkComponentDependency
   { dep'type :: ComponentType
@@ -58,19 +81,9 @@ data ComponentDependency = MkComponentDependency
   , dep'version :: Version
   , dep'license :: Maybe SPDX.License
   , dep'description :: Text
+  , dep'purl :: Purl
   }
-  deriving stock (Eq, Ord, Show, Generic)
-
-mkPurl
-  :: Text
-  -- ^ repo
-  -> Text
-  -- ^ name
-  -> Maybe Version
-  -- ^ version
-  -> Text
-mkPurl repo name version = mconcat ["pkg:", repo, "/", name, maybe "" (("@" <>) . prettyVersion) version]
-{-# INLINE mkPurl #-}
+  deriving stock (Eq, Show, Generic)
 
 -- | pretty-prints a `Version`
 --
@@ -101,6 +114,20 @@ prettyComponentType = \case
   Library -> "library"
   Application -> "application"
 {-# INLINE prettyComponentType #-}
+
+-- | create a purl for a Hackage package
+mkHackagePurl :: Text -> Maybe Version -> Purl
+mkHackagePurl name version =
+  (newPurlHackage (PurlName name))
+    { purlVersion = PurlVersion . prettyVersion <$> version
+    }
+
+-- | create a purl with a specific repo/namespace
+mkPurlWithRepo :: Text -> Text -> Maybe Version -> Purl
+mkPurlWithRepo repo name version =
+  (newPurlOther repo (PurlName name))
+    { purlVersion = PurlVersion . prettyVersion <$> version
+    }
 
 -- | builds a bom ref for a component
 mkBomRef

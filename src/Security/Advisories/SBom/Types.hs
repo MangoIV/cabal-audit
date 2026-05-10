@@ -2,6 +2,7 @@
 
 module Security.Advisories.SBom.Types
   ( SBomMeta (..)
+  , ComponentDependency (..)
   , ComponentType (..)
   , prettyComponentType
   , prettyVersion

@@ -1,0 +1,13 @@
+cabal-version: 3.8
+name:          agda2scala
+version:       0.1.0.0
+build-type:    Simple
+
+library
+  hs-source-dirs:   src
+  exposed-modules:  Agda2Scala
+  build-depends:
+    , base
+    , process
+
+  default-language: Haskell2010

@@ -1,0 +1,15 @@
+cabal-version: 3.8
+name:          comment-before-real
+version:       0.1.0.0
+build-type:    Simple
+
+library
+  hs-source-dirs:   src
+  exposed-modules:  CommentBeforeReal
+
+  -- process is mentioned here first, but only in a comment
+  build-depends:
+    , base
+    , process
+
+  default-language: Haskell2010

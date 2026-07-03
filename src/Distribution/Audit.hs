@@ -29,7 +29,7 @@ import Data.SARIF as Sarif
 import Data.String (IsString (fromString))
 import Data.Text (Text)
 import Data.Text qualified as T
-import Data.Time (getCurrentTime)
+import Data.Time (getCurrentTime, utctDay)
 import Data.UUID.V4 qualified as UUID
 import Data.Vector (Vector)
 import Data.Vector qualified as V
@@ -59,6 +59,7 @@ import Security.Advisories.Cabal
   , matchAdvisoriesForPlan
   )
 import Security.Advisories.Convert.OSV qualified as OSV
+import Security.Advisories.Exclude
 import Security.Advisories.Filesystem (listAdvisories)
 import Security.Advisories.SBom.Cabal (planToSBom)
 import Security.Advisories.SBom.CycloneDX (CycloneDXInfo (..), serializeToCycloneDX)
@@ -82,6 +83,8 @@ data AuditException
     ListAdvisoryValidationError {parseError :: [(FilePath, ParseAdvisoryError)]}
   | -- | to rethrow exceptions thrown by cabal during plan elaboration
     CabalException {reason :: String, cabalException :: SomeException}
+  | -- | loading or parsing an exclusion file failed
+    ExcludeFileError {excludeFileError :: ExclusionsLoadError}
   deriving stock (Show, Generic)
 
 instance Exception AuditException where
@@ -102,6 +105,7 @@ instance Exception AuditException where
         <> ctx
         <> ":\n"
         <> displayException ex
+    ExcludeFileError err -> displayExclusionsLoadError err
 
 -- | the type of output that is chosen for the command
 data OutputFormat
@@ -128,6 +132,8 @@ data AuditConfig = MkAuditConfig
   -- ^ whether or not to write coloured output
   , failOnWarning :: Bool
   -- ^ whether to exit with a non-success code when advisories are found
+  , excludeFile :: FilePath
+  -- ^ path to a JSON exclusion file
   }
 
 data AuditResult = MkAuditResult
@@ -152,9 +158,16 @@ auditMain = do
   runM $ interpPretty do
     advisories <-
       ( do
+          exclusions <- do
+            liftIO (loadExclusions (excludeFile auditConfig)) >>= \case
+              Left err -> throwIO (ExcludeFileError err)
+              Right exs -> pure exs
           result <- buildAdvisories auditConfig nixStyleFlags
-          handleBuiltAdvisories result (outputHandle auditConfig) (outputFormat auditConfig)
-          pure result.auditResult'advisories
+          today <- liftIO $ utctDay <$> getCurrentTime
+          let filteredAdvisories = applyExclusions today exclusions result.auditResult'advisories
+              filteredResult = result {auditResult'advisories = filteredAdvisories}
+          handleBuiltAdvisories filteredResult (outputHandle auditConfig) (outputFormat auditConfig)
+          pure filteredAdvisories
       )
         `catch` \(SomeException ex) -> do
           owo
@@ -535,6 +548,15 @@ auditCommandParser =
           mconcat
             [ long "fail-on-warning"
             , help "Exits with an error code if any advisories are found in the build plan"
+            ]
+        <*> strOption do
+          mconcat
+            [ long "suppress-file"
+            , short 's'
+            , metavar "FILEPATH"
+            , value ".cabal-audit.json"
+            , showDefault
+            , help "path to a JSON file listing suppressed advisories"
             ]
     -- FUTUREWORK(mangoiv): this will accept cabal flags as an additional argument with something like
     -- --cabal-flags "--some-cabal-flag" and print a helper that just forwards the cabal help text

@@ -69,6 +69,7 @@ library
     Control.Effect.Pretty
     Distribution.Audit
     Security.Advisories.Cabal
+    Security.Advisories.Exclude
     Security.Advisories.SBom.Cabal
     Security.Advisories.SBom.CycloneDX
     Security.Advisories.SBom.Types
@@ -81,6 +82,7 @@ library
     , cabal-install
     , colourista
     , containers
+    , directory
     , filepath
     , fused-effects
     , hsec-core

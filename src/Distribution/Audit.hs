@@ -24,6 +24,8 @@ import Data.Coerce (coerce)
 import Data.Foldable (fold, for_)
 import Data.Functor ((<&>))
 import Data.Functor.Identity (Identity (runIdentity))
+import Data.List (nub)
+import Data.List.NonEmpty qualified as NE
 import Data.Map qualified as M
 import Data.SARIF as Sarif
 import Data.String (IsString (fromString))
@@ -51,7 +53,7 @@ import Distribution.Verbosity qualified as Verbosity
 import Distribution.Version (Version)
 import GHC.Generics (Generic)
 import Options.Applicative
-import Security.Advisories (Advisory (..), Keyword (..), ParseAdvisoryError (..), ghcComponentToText, printHsecId)
+import Security.Advisories (Advisory (..), Affected (..), CWE (..), Keyword (..), ParseAdvisoryError (..), ghcComponentToText, printHsecId)
 import Security.Advisories.Cabal
   ( AuditedComponent (..)
   , ElaboratedPackageInfoAdvised
@@ -64,6 +66,7 @@ import Security.Advisories.SBom.Cabal (planToSBom)
 import Security.Advisories.SBom.CycloneDX (CycloneDXInfo (..), serializeToCycloneDX)
 import Security.Advisories.SBom.Types (prettyVersion)
 import Security.Advisories.Sync qualified as Sync
+import Security.CVSS qualified as CVSS
 import System.Exit (exitFailure)
 import System.IO (Handle, IOMode (WriteMode), stdout, withFile)
 import UnliftIO (MonadIO (..), MonadUnliftIO (..), catch, throwIO, withSystemTempDirectory)
@@ -271,6 +274,7 @@ sarifHandler mkHandle projectBaseContext packageAdvisories = do
             packageAdvisories >>= \(pkgName, pkgInfo) ->
               runIdentity pkgInfo.packageAdvisories <&> \(advisory, fixedAt) ->
                 (advisory.advisoryId, (advisory, [(renderAuditedComponent pkgName, fixedAt)]))
+  let rules = ruleForAdvisory . fst <$> advisories
       run =
         MkRun
           { runTool =
@@ -284,12 +288,14 @@ sarifHandler mkHandle projectBaseContext packageAdvisories = do
                         [ tool "hsec-tools" VERSION_hsec_tools
                         , tool "ghc" $ T.pack __GLASGOW_HASKELL_FULL_VERSION__
                         ]
-                    , toolDriver = tool "cabal-audit" VERSION_cabal_audit
+                    , toolDriver =
+                        let toolCabalAudit = tool "cabal-audit" VERSION_cabal_audit
+                         in toolCabalAudit {toolComponentRules = rules}
                     }
           , runResults =
               advisories <&> \(advisory, concernedInfo) ->
                 MkResult
-                  { resultRuleId = T.pack $ printHsecId advisory.advisoryId
+                  { resultRuleId = advisoryRuleId advisory
                   , resultMessage =
                       MkMultiformatMessageString
                         { mmsText = fold $ prettyAdvisory advisory $ prettyTextSummary $ fst <$> concernedInfo
@@ -316,6 +322,97 @@ sarifHandler mkHandle projectBaseContext packageAdvisories = do
           }
   withRunCodensityInIO mkHandle \hdl ->
     liftIO . BSL.hPutStr hdl . Aeson.encode $ defaultLog {logRuns = [run]}
+
+advisoryRuleId :: Advisory -> Text
+advisoryRuleId advisory =
+  T.pack (printHsecId advisory.advisoryId)
+
+advisoryUrl :: Advisory -> Text
+advisoryUrl advisory =
+  "https://haskell.github.io/security-advisories/advisory/"
+    <> advisoryRuleId advisory
+
+-- | GitHub Code Scanning supports rule descriptions of at most 1024
+-- characters.
+githubRuleDescription :: Text -> Text
+githubRuleDescription = T.take 1024
+
+-- | GitHub Code Scanning rejects SARIF containing more than 20 tags
+-- for a single rule.
+githubRuleTags :: [Text] -> [Text]
+githubRuleTags = take 20 . nub
+
+ruleForAdvisory :: Advisory -> ReportingDescriptor
+ruleForAdvisory advisory =
+  (defaultReportingDescriptor ruleId)
+    { rdName = Just ruleId
+    , rdShortDescription =
+        Just
+          MkMultiformatMessageString
+            { mmsText =
+                githubRuleDescription advisory.advisorySummary
+            , mmsMarkdown = Nothing
+            }
+    , rdFullDescription =
+        Just
+          MkMultiformatMessageString
+            { mmsText =
+                githubRuleDescription $
+                  "Haskell Security Advisory: "
+                    <> advisory.advisorySummary
+                    <> keywordsSuffix
+            , mmsMarkdown = Nothing
+            }
+    , rdHelpUri = Just (advisoryUrl advisory)
+    , rdDefaultConfiguration =
+        Just
+          defaultReportingConfiguration
+            { rcLevel = Just Sarif.Error
+            }
+    , rdProperties =
+        M.singleton "tags" (Aeson.toJSON (ruleTags advisory))
+          <> foldMap
+            (M.singleton "security-severity" . Aeson.toJSON)
+            (advisorySecuritySeverity advisory)
+    }
+ where
+  ruleId = advisoryRuleId advisory
+  keywords = T.intercalate ", " (coerce advisory.advisoryKeywords)
+  keywordsSuffix =
+    if T.null keywords
+      then ""
+      else ". Keywords: " <> keywords
+
+ruleTags :: Advisory -> [Text]
+ruleTags advisory =
+  githubRuleTags $
+    [ "security"
+    , "external/hsec/" <> advisoryRuleId advisory
+    ]
+      <> cveTags
+      <> cweTags
+ where
+  cveTags =
+    [ "external/cve/" <> T.toLower alias
+    | alias <- advisory.advisoryAliases
+    , "CVE-" `T.isPrefixOf` T.toUpper alias
+    ]
+
+  cweTags =
+    [ "external/cwe/cwe-" <> T.pack (show (unCWE cwe))
+    | cwe <- advisory.advisoryCWEs
+    ]
+
+advisorySecuritySeverity :: Advisory -> Maybe Text
+advisorySecuritySeverity advisory =
+  T.pack . show . maximum <$> NE.nonEmpty positiveScores
+ where
+  positiveScores = filter (> 0) scores
+  scores =
+    [ score
+    | affected <- advisory.advisoryAffected
+    , let (_, score) = CVSS.cvssScore (affectedCVSS affected)
+    ]
 
 data Segment = Segment
   { sConsoleColors :: [Text]

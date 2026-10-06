@@ -2,6 +2,7 @@
   mkDerivation,
   base,
   Cabal-syntax,
+  containers,
   cvss,
   fetchgit,
   lib,
@@ -16,17 +17,18 @@
 }:
 mkDerivation {
   pname = "hsec-core";
-  version = "0.3.0.0";
+  version = "0.5.0.0";
   src = fetchgit {
     url = "https://github.com/haskell/security-advisories";
-    sha256 = "08yxj23q6pn4cfc94dvd3f3jzmxi1kqjbla9gvwak4xh2bg1axrv";
-    rev = "eb0b808c0a1fe3a57e9407dd6b91bcb1c8411345";
+    sha256 = "0xyngq0r6vaa260aw5dy2ijw1vhn1az2rdl4m16hzmnz116hpl3b";
+    rev = "57073681929c733854f3222e3fa7d14c05262508";
     fetchSubmodules = true;
   };
   postUnpack = "sourceRoot+=/code/hsec-core/; echo source root reset to $sourceRoot";
   libraryHaskellDepends = [
     base
     Cabal-syntax
+    containers
     cvss
     network-uri
     osv

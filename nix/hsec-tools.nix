@@ -22,7 +22,7 @@
   hsec-core,
   lens,
   lib,
-  lucid,
+  lucid2,
   mtl,
   network-uri,
   optparse-applicative,
@@ -50,11 +50,11 @@
 }:
 mkDerivation {
   pname = "hsec-tools";
-  version = "0.3.0.1";
+  version = "0.5.0.0";
   src = fetchgit {
     url = "https://github.com/haskell/security-advisories";
-    sha256 = "08yxj23q6pn4cfc94dvd3f3jzmxi1kqjbla9gvwak4xh2bg1axrv";
-    rev = "eb0b808c0a1fe3a57e9407dd6b91bcb1c8411345";
+    sha256 = "0xyngq0r6vaa260aw5dy2ijw1vhn1az2rdl4m16hzmnz116hpl3b";
+    rev = "57073681929c733854f3222e3fa7d14c05262508";
     fetchSubmodules = true;
   };
   postUnpack = "sourceRoot+=/code/hsec-tools/; echo source root reset to $sourceRoot";
@@ -79,7 +79,7 @@ mkDerivation {
     filepath
     hsec-core
     lens
-    lucid
+    lucid2
     mtl
     network-uri
     osv
@@ -104,6 +104,7 @@ mkDerivation {
     base
     bytestring
     Cabal-syntax
+    directory
     filepath
     hsec-core
     network-uri
@@ -113,8 +114,10 @@ mkDerivation {
     validation-selective
   ];
   testHaskellDepends = [
+    aeson
     aeson-pretty
     base
+    bytestring
     Cabal-syntax
     containers
     cvss

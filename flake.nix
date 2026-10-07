@@ -85,7 +85,7 @@
             name = "regen-cabal-audit-nix";
             runtimeInputs = [pkgs.cabal2nix pkgs.alejandra];
             text = let
-              v = "eb0b808c0a1fe3a57e9407dd6b91bcb1c8411345";
+              v = "57073681929c733854f3222e3fa7d14c05262508";
               cmd = pkg: ''
                 cabal2nix https://github.com/haskell/security-advisories \
                   --revision ${v} \

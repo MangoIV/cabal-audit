@@ -136,6 +136,6 @@ mkDerivation {
     toml-parser
   ];
   description = "Tools for working with the Haskell security advisory database";
-  license = lib.licenses.bsd3;
+  license = lib.meta.getLicenseFromSpdxId "BSD-3-Clause";
   mainProgram = "hsec-tools";
 }

@@ -23,5 +23,5 @@ mkDerivation {
   libraryHaskellDepends = [aeson base cvss purl text time];
   testHaskellDepends = [base tasty];
   description = "Open Source Vulnerability format";
-  license = lib.licenses.bsd3;
+  license = lib.meta.getLicenseFromSpdxId "BSD-3-Clause";
 }

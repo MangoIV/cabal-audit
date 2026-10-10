@@ -46,5 +46,5 @@ mkDerivation {
     text
   ];
   description = "Core package representing Haskell advisories";
-  license = lib.licenses.bsd3;
+  license = lib.meta.getLicenseFromSpdxId "BSD-3-Clause";
 }

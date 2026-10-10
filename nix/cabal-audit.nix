@@ -78,6 +78,6 @@ mkDerivation {
     vector
   ];
   description = "Checking a cabal project for security advisories";
-  license = lib.licenses.bsd3;
+  license = lib.meta.getLicenseFromSpdxId "BSD-3-Clause";
   mainProgram = "cabal-audit";
 }

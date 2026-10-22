@@ -482,13 +482,23 @@ auditCommandParser =
                 , help "the url to the repository containing an advisories directory"
                 , value "https://github.com/haskell/security-advisories"
                 ]
-        <*> flip option (long "verbosity" <> value Verbosity.normal <> showDefaultWith (const "normal")) do
-          eitherReader \case
-            "silent" -> Right Verbosity.silent
-            "normal" -> Right Verbosity.normal
-            "verbose" -> Right Verbosity.verbose
-            "deafening" -> Right Verbosity.deafening
-            _ -> Left "verbosity has to be one of \"silent\", \"normal\", \"verbose\" or \"deafening\""
+        <*> flip
+          option
+          ( mconcat
+              [ long "verbosity"
+              , metavar "LEVEL"
+              , help "set output verbosity: silent, normal, verbose, or deafening"
+              , showDefaultWith (const "normal")
+              , value Verbosity.normal
+              ]
+          )
+          do
+            eitherReader \case
+              "silent" -> Right Verbosity.silent
+              "normal" -> Right Verbosity.normal
+              "verbose" -> Right Verbosity.verbose
+              "deafening" -> Right Verbosity.deafening
+              _ -> Left "verbosity has to be one of \"silent\", \"normal\", \"verbose\" or \"deafening\""
         <*> ( flag'
                 Osv
                 ( mconcat

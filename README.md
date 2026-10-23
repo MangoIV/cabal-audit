@@ -6,9 +6,9 @@
   <h1> <code> cabal-audit </code> </h1>
 </div>
 
-`cabal-audit` is a command-line utility that scans Haskell projects for known vulnerabilities based on the 
-[security advisories database](https://github.com/haskell/security-advisories). 
-It checks project dependencies, reports potential vulnerabilities, and provides details about the vulnerabilities, including links to relevant 
+`cabal-audit` is a command-line utility that scans Haskell projects for known vulnerabilities based on the
+[security advisories database](https://github.com/haskell/security-advisories).
+It checks project dependencies, reports potential vulnerabilities, and provides details about the vulnerabilities, including links to relevant
 advisories and possible fixes.
 
 ## Installation
@@ -24,7 +24,7 @@ If you don't use `nix`, you can also build from source with `cabal`. Just clone 
 You can also [download a static executable from one of the latest workflow runs](https://github.com/MangoIV/cabal-audit/releases/tag/nightly).
 
 > [!Note]
-> We also have a `cachix`. If you trust me (which I do not recommend, never trust anybody!), run `cachix use cabal-audit` to 
+> We also have a `cachix`. If you trust me (which I do not recommend, never trust anybody!), run `cachix use cabal-audit` to
 > download directly from the cachix and skip building.
 
 ## Usage
@@ -35,9 +35,10 @@ Run `cabal-audit` to scan your project for known vulnerabilities:
 λ cabal-audit --help
 Welcome to cabal audit
 
-Usage: cabal-audit [(-p|--file-path FILEPATH) | (-r|--repository REPOSITORY)] 
-                   [--verbosity ARG] [-m|--json] [-o|--to-file FILEPATH] 
-                   [-b|--no-color|--no-colour] [--fail-on-warning]
+Usage: cabal-audit [(-p|--file-path FILEPATH) | (-r|--repository REPOSITORY)]
+                   [--verbosity ARG] [(-m|--json) | --sarif | --cyclonedx]
+                   [-o|--to-file FILEPATH] [-b|--no-color|--no-colour]
+                   [--fail-on-warning] [-x|--exclude-file FILEPATH]
 
   audit your cabal projects for vulnerabilities
 
@@ -50,11 +51,16 @@ Available options:
                            directory
   -m,--json                whether to format as json mapping package names to
                            osvs that apply
+  --sarif                  produce a sarif file (GitHub Code Scanning)
+  --cyclonedx              produce a CycloneDX SBOM
   -o,--to-file FILEPATH    specify a file to write to, instead of stdout
   -b,--no-color,--no-colour
                            don't colour the output
   --fail-on-warning        Exits with an error code if any advisories are found
                            in the build plan
+  -s,--suppress-file FILEPATH
+                           path to a JSON file listing suppressed advisories
+                           (default: ".cabal-audit.json")
 ```
 
 ```console
@@ -89,6 +95,33 @@ dependency "process" at version 1.6.18.0 is vulnerable for:
 > [!Note]
 > If you encounter an error related to lock file incompatibility, consider upgrading your Nix version.
 
+## Suppressing advisories with an exclusions file
+
+Sometimes a reported vulnerability is known not to affect your project (wrong
+platform, unused code path, mitigated in your deployment, etc.) and the team
+wants to silence the warning either permanently or until a decision is
+revisited.
+
+`cabal-audit` supports an *exclusions file* for this. By default it looks for
+`.cabal-audit.json` in the current directory; you can point it to a different
+location with `-s`/`--suppress-file`.
+
+The file is JSON:
+
+```json
+[
+  {
+    "id": "HSEC-2023-0007",
+    "reason": "we do not parse untrusted floating-point input"
+  },
+  {
+    "id": "HSEC-2024-0003",
+    "reason": "revisit when we ship a Windows build",
+    "expires": "2026-12-31"
+  }
+]
+```
+
 ## Using in Github action
 
 To scan for vulnerabilities and upload a [SARIF report for GitHub code scanning](https://docs.github.com/en/code-security/concepts/code-scanning/sarif-files), you can use [blackheaven/haskell-security-action](https://github.com/blackheaven/haskell-security-action). See its README for an example workflow.
@@ -99,12 +132,12 @@ After running on main branch, results should appear in `Security and quality` ->
 
 - query for vulnerable dependencies in cabal plan
 - human readable output
-- machine readable output 
+- machine readable output
 - fix version suggestion
 
 ## Contributing
 
-Contributions are welcome. 
+Contributions are welcome.
 
 Building the project in a non-nix environment should be as easy as `cabal build`, the build is tested against multiple ghc versions and operating systems in the CI so it should always work with one of these. If you don't use nix, installing the necessary tooling is as always possible with [ghcup](https://www.haskell.org/ghcup/).
 

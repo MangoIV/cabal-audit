@@ -81,6 +81,7 @@ library
     , cabal-install
     , colourista
     , containers
+    , cvss
     , filepath
     , fused-effects
     , hsec-core

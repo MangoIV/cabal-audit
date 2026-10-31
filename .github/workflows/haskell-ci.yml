@@ -22,7 +22,7 @@ jobs:
         with:
           cabal-file: cabal-audit.cabal
           ubuntu-version: "latest"
-          macos-version: "latest"
+          macos-version: "15-arm64"
           windows-version: "latest"
           version: 0.1.7.0
   tests:

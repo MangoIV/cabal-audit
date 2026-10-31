@@ -8,6 +8,7 @@
   Cabal-syntax,
   colourista,
   containers,
+  cvss,
   filepath,
   fused-effects,
   hsec-core,
@@ -45,6 +46,7 @@ mkDerivation {
     cabal-install
     colourista
     containers
+    cvss
     filepath
     fused-effects
     hsec-core

@@ -92,7 +92,7 @@ library
     , pretty
     , process
     , purl                  >=0.1
-    , sarif
+    , sarif                 <0.2
     , temporary
     , text
     , time

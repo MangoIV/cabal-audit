@@ -25,7 +25,7 @@
       }: let
         hlib = pkgs.haskell.lib.compose;
         hspkgs = pkgs.haskellPackages.override {
-          overrides = import ./nix/haskell-overlay.nix {inherit hlib;};
+          overrides = pkgs.callPackage ./nix/haskell-overlay.nix {inherit hlib;};
         };
       in {
         # this flake module adds two things
@@ -43,12 +43,11 @@
 
             alejandra.enable = true;
             statix.enable = true;
-            deadnix.enable = true;
           };
         };
 
         devShells.plain-haskell = hspkgs.callPackage ./nix/haskell-shell.nix {
-          inherit (pkgs.haskell.packages.ghc98) haskell-language-server fourmolu;
+          inherit (pkgs.haskellPackages) haskell-language-server fourmolu;
         };
 
         # https://flake.parts/options/devshell for more information; one of the advantages is
@@ -85,7 +84,7 @@
             name = "regen-cabal-audit-nix";
             runtimeInputs = [pkgs.cabal2nix pkgs.alejandra];
             text = let
-              v = "57073681929c733854f3222e3fa7d14c05262508";
+              v = "b44bcbc79aae5df3febfbc1bbe9c760f194612f2";
               cmd = pkg: ''
                 cabal2nix https://github.com/haskell/security-advisories \
                   --revision ${v} \

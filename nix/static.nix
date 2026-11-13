@@ -3,22 +3,23 @@
   haskellPackages,
   lib,
   upx,
+  git,
   ...
 }: let
   hlib = haskell.lib.compose;
   hspkgs = haskellPackages.override {
     overrides =
       lib.composeExtensions
-      (import ./haskell-overlay.nix {inherit hlib;})
+      (import ./haskell-overlay.nix {inherit hlib git;})
       (hself: hsuper: {
-        Cabal-syntax = hsuper.Cabal-syntax_3_10_3_0;
-        Cabal = hsuper.Cabal_3_10_3_0;
-        cabal-install-solver = hself.callHackage "cabal-install-solver" "3.10.3.0" {};
-        cabal-install = hself.callHackage "cabal-install" "3.10.3.0" {
-          Cabal-QuickCheck = null;
-          Cabal-described = null;
-          Cabal-tree-diff = null;
-        };
+        # Cabal-syntax = hsuper.Cabal-syntax_3_10_3_0;
+        # Cabal = hsuper.Cabal_3_10_3_0;
+        # cabal-install-solver = hself.callHackage "cabal-install-solver" "3.10.3.0" {};
+        # cabal-install = hself.callHackage "cabal-install" "3.10.3.0" {
+        #   Cabal-QuickCheck = null;
+        #   Cabal-described = null;
+        #   Cabal-tree-diff = null;
+        # };
       });
   };
 in

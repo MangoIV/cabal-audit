@@ -39,7 +39,9 @@
   tasty,
   tasty-golden,
   tasty-hedgehog,
+  tasty-hunit,
   template-haskell,
+  temporary,
   text,
   time,
   toml-parser,
@@ -50,11 +52,11 @@
 }:
 mkDerivation {
   pname = "hsec-tools";
-  version = "0.5.0.0";
+  version = "0.5.0.1";
   src = fetchgit {
     url = "https://github.com/haskell/security-advisories";
-    sha256 = "0xyngq0r6vaa260aw5dy2ijw1vhn1az2rdl4m16hzmnz116hpl3b";
-    rev = "57073681929c733854f3222e3fa7d14c05262508";
+    sha256 = "1njqipmhaiyhq2xvpfsm4bl8y1xfyf17nbf81vvqf5ihq5pqnjfl";
+    rev = "b44bcbc79aae5df3febfbc1bbe9c760f194612f2";
     fetchSubmodules = true;
   };
   postUnpack = "sourceRoot+=/code/hsec-tools/; echo source root reset to $sourceRoot";
@@ -122,20 +124,25 @@ mkDerivation {
     containers
     cvss
     directory
+    filepath
     hedgehog
     hsec-core
     network-uri
     osv
     pretty-simple
     prettyprinter
+    process
     tasty
     tasty-golden
     tasty-hedgehog
+    tasty-hunit
+    temporary
     text
     time
     toml-parser
+    validation-selective
   ];
   description = "Tools for working with the Haskell security advisory database";
-  license = lib.licenses.bsd3;
+  license = lib.meta.getLicenseFromSpdxId "BSD-3-Clause";
   mainProgram = "hsec-tools";
 }
